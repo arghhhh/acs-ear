@@ -1,0 +1,15 @@
+
+
+# for now at least
+# ideally everything will move into a module
+
+include( "ERB_Hz.jl"                )
+include( "CARFAC_Design_Stage_g.jl" )
+include( "CARFAC_Detect.jl"         )
+include( "CAR_params_default.jl"    )
+include( "AGC_params_default.jl"    )
+include( "IHC_params_default.jl"    )
+include( "SYN_params_default.jl"    )
+include( "CARFAC_Design.jl"         )
+
+
