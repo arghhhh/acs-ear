@@ -228,12 +228,11 @@ function CARFAC_DesignFilters(CAR_params, fs, pole_freqs)
         # % the filter design coeffs:
         # % scalars first:
         CAR_coeffs = CAR_coeffs_struct()
-        n_ch           = n_ch
-        velocity_scale = CAR_params.velocity_scale
-        v_offset       = CAR_params.v_offset
-        ac_coeff       = 2 * pi * CAR_params.ac_corner_Hz / fs 
+        CAR_coeffs.n_ch           = n_ch
+        CAR_coeffs.velocity_scale = CAR_params.velocity_scale
+        CAR_coeffs.v_offset       = CAR_params.v_offset
+        CAR_coeffs.ac_coeff       = 2 * pi * CAR_params.ac_corner_Hz / fs 
         
-
         # % don't really need these zero arrays, but it's a clue to what fields
         # % and types are needed in other language implementations:
         CAR_coeffs.r1_coeffs  = zeros(n_ch)
@@ -450,7 +449,7 @@ function CARFAC_DesignIHC(IHC_params, fs, n_ch)
         if IHC_params.just_hwr
                 IHC_coeffs = IHC_coeffs_struct()
                 IHC_coeffs.n_ch      = n_ch
-                IHC_coeffs.just_hwr  = 1
+                IHC_coeffs.just_hwr  = true
         elseif IHC_params.one_cap
                 gmax = CARFAC_Detect1(10) # % output conductance at a high level
                 rmin = 1 / gmax
@@ -465,7 +464,7 @@ function CARFAC_DesignIHC(IHC_params, fs, n_ch)
                 cap_voltage = 1 - rest_current * ri
                 IHC_coeffs = IHC_coeffs_struct()
                 IHC_coeffs.n_ch                = n_ch
-                IHC_coeffs.just_hwr            = 0
+                IHC_coeffs.just_hwr            = false
                 IHC_coeffs.lpf_coeff           = 1 - exp(-1/(IHC_params.tau_lpf * fs))
                 IHC_coeffs.out_rate            = rmin / (IHC_params.tau_out * fs)
                 IHC_coeffs.in_rate             = 1 / (IHC_params.tau_in * fs)
@@ -511,7 +510,7 @@ function CARFAC_DesignIHC(IHC_params, fs, n_ch)
 
                 IHC_coeffs = IHC_coeffs_struct()
                 IHC_coeffs.n_ch             = n_ch
-                IHC_coeffs.just_hwr         = 0
+                IHC_coeffs.just_hwr         = false
                 IHC_coeffs.lpf_coeff        = 1 - exp(-1/(IHC_params.tau_lpf * fs))
                 IHC_coeffs.out1_rate        = r1min / (IHC_params.tau1_out * fs)
                 IHC_coeffs.in1_rate         = 1 / (IHC_params.tau1_in * fs)

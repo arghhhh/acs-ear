@@ -28,7 +28,7 @@ mutable struct CAR_params
                 r.ERB_break_freq    = 165.3   # % 165.3 is Greenwood map's break freq.
                 r.ERB_Q             = 1000/(24.7*4.37)  # % Glasberg and Moore's high-cf ratio
                 r.ac_corner_Hz      = 20.0    # % AC couple at 20 Hz corner
-                r.use_delay_buffer  = 0       # % Default to true starting in v3.
+                r.use_delay_buffer  = false   # % Default to true starting in v3.
                 return r
         end
 end

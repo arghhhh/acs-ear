@@ -1,0 +1,150 @@
+# % // clang-format off
+# % Copyright 2012 The CARFAC Authors. All Rights Reserved.
+# % Author: Richard F. Lyon
+# %
+# % This file is part of an implementation of Lyon's cochlear model:
+# % "Cascade of Asymmetric Resonators with Fast-Acting Compression"
+# %
+# % Licensed under the Apache License, Version 2.0 (the "License");
+# % you may not use this file except in compliance with the License.
+# % You may obtain a copy of the License at
+# %
+# %     http://www.apache.org/licenses/LICENSE-2.0
+# %
+# % Unless required by applicable law or agreed to in writing, software
+# % distributed under the License is distributed on an "AS IS" BASIS,
+# % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# % See the License for the specific language governing permissions and
+# % limitations under the License.
+
+mutable struct Ear_state
+        CAR_state
+        IHC_state
+        AGC_state
+        SYN_state
+
+        Ear_state() = new()
+end
+
+function CARFAC_Init(CF)
+# % function CF = CARFAC_Init(CF)
+# %
+# % Initialize state for one or more ears of CF.
+# % This allocates and zeros all the state vector storage in the CF struct.
+
+        n_ears = CF.n_ears;
+
+        states = [ Ear_state() for _ in 1:n_ears ]
+
+        for ear = 1:n_ears
+                # % for now there's only one coeffs, not one per ear
+                states[ear].CAR_state = CAR_Init_State(CF.ears[ear].CAR_coeffs)
+                states[ear].IHC_state = IHC_Init_State(CF.ears[ear].IHC_coeffs)
+                states[ear].AGC_state = AGC_Init_State(CF.ears[ear].AGC_coeffs)
+                if CF.do_syn
+                        states[ear].SYN_state = SYN_Init_State(CF.ears[ear].SYN_coeffs)
+                end
+        end
+        return states
+end
+
+mutable struct CAR_state
+        z1_memory
+        z2_memory
+        zA_memory
+        zB_memory
+        dzB_memory
+        zY_memory
+        g_memory
+        dg_memory
+        ac_coupler
+        CAR_state() = new()
+end        
+
+function CAR_Init_State(coeffs)
+        n_ch = coeffs.n_ch
+        state = CAR_state()
+        state.z1_memory            = zeros(n_ch)
+        state.z2_memory            = zeros(n_ch)
+        state.zA_memory            = zeros(n_ch)
+        state.zB_memory            = coeffs.zr_coeffs
+        state.dzB_memory           = zeros(n_ch)
+        state.zY_memory            = zeros(n_ch)
+        state.g_memory             = coeffs.g0_coeffs
+        state.dg_memory            = zeros(n_ch)
+        state.ac_coupler           = zeros(n_ch)
+        return state
+end
+
+mutable struct AGC_state
+        AGC_memory
+        decim_phase
+        input_accum
+        AGC_state() = new()
+end
+
+function AGC_Init_State(coeffs)
+        # % 2025 new way, one struct instead of array of them.
+        state = AGC_state()
+
+        state.AGC_memory  = zeros(coeffs.n_ch, coeffs.n_AGC_stages)
+        state.decim_phase = zeros(1, coeffs.n_AGC_stages) #  % small ints
+
+        if coeffs.simpler_decimating  # % One decimation factor vs per stage.
+                state.input_accum = zeros(coeffs.n_ch);
+        else
+                state.input_accum = zeros(coeffs.n_ch, coeffs.n_AGC_stages);
+        end
+        return state
+end
+
+mutable struct IHC_state
+        # should probably different state structs for each of just_hwr, one_cap, else cases
+        ihc_accum
+
+        cap_voltage
+        lpf1_state
+        lpf2_state
+
+        cap1_voltage
+        cap2_voltage
+
+        IHC_state() = new()
+end
+
+function IHC_Init_State(coeffs)
+        n_ch = coeffs.n_ch;
+
+        state = IHC_state()
+
+        if coeffs.just_hwr
+                state.ihc_accum = zeros(n_ch);
+        elseif coeffs.one_cap
+                state.ihc_accum     = zeros(n_ch)
+                state.cap_voltage   = coeffs.rest_cap * ones(n_ch)
+                state.lpf1_state    = coeffs.rest_output * ones(n_ch)
+                state.lpf2_state    = coeffs.rest_output * ones(n_ch)
+        else
+                state.ihc_accum     = zeros(n_ch)
+                state.cap1_voltage  = coeffs.rest_cap1 * ones(n_ch)
+                state.cap2_voltage  = coeffs.rest_cap2 * ones(n_ch)
+                state.lpf1_state    = coeffs.rest_output * ones(n_ch)
+        end
+        return state
+end
+
+mutable struct SYN_state
+        reservoirs
+        lpf_state
+        SYN_state() = new()
+end 
+
+function SYN_Init_State(coeffs)
+        n_ch = coeffs.n_ch;
+        n_cl = coeffs.n_classes;
+        state = SYN_state
+        state.reservoirs     = ones(n_ch) * coeffs.res_lpf_inits  # % 0 full, 1 empty.
+        state.lpf_state     = ones(n_ch) * coeffs.spont_p
+
+        return state
+end

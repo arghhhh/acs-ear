@@ -11,5 +11,7 @@ include( "AGC_params_default.jl"    )
 include( "IHC_params_default.jl"    )
 include( "SYN_params_default.jl"    )
 include( "CARFAC_Design.jl"         )
+include( "CARFAC_Init.jl"           )
+include( "CARFAC_CAR_Step.jl"       )
 
 
