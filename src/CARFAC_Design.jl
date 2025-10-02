@@ -17,6 +17,14 @@
 # % See the License for the specific language governing permissions and
 # % limitations under the License.
 
+mutable struct Ear
+	CAR_coeffs
+	AGC_coeffs
+	IHC_coeffs
+	SYN_coeffs
+	Ear() = new()
+end
+
 mutable struct CARFAC
         fs
         max_channels_per_octave
@@ -26,7 +34,7 @@ mutable struct CARFAC
         SYN_params
         n_ch
         pole_freqs
-        ears
+        ears::Vector{Ear}
         n_ears
         open_loop
         linear_car
@@ -160,11 +168,12 @@ SYN_coeffs = CARFAC_DesignSynapses(CF_SYN_params, fs, pole_freqs);
 
 # % Copy same designed coeffs into each ear (can do differently in the
 # % future, e.g. for unmatched OHC_health).
-for ear = 1:n_ears
-  ears(ear).CAR_coeffs = CAR_coeffs;
-  ears(ear).AGC_coeffs = AGC_coeffs;
-  ears(ear).IHC_coeffs = IHC_coeffs;
-  ears(ear).SYN_coeffs = SYN_coeffs;
+ears = [ Ear() for _ in 1:n_ears ]
+for e = 1:n_ears
+	ears[e].CAR_coeffs = CAR_coeffs;
+	ears[e].AGC_coeffs = AGC_coeffs;
+	ears[e].IHC_coeffs = IHC_coeffs;
+	ears[e].SYN_coeffs = SYN_coeffs;
 end
 
 
@@ -526,75 +535,91 @@ function CARFAC_DesignIHC(IHC_params, fs, n_ch)
 
         return IHC_coeffs
 end
-#=
+
+mutable struct SYN_coeffs
+	n_ch
+	n_classes
+	n_fibers
+	v_widths
+	v_halfs      # % Same units as v_recep and v_widths.
+	a1           # % Feedback gain
+	a2           # % Output gain
+	agc_weights  # % For making a nap out to agc in.
+	spont_p      # % used only to init the output LPF
+	spont_sub   
+	res_lpf_inits
+	res_coeff
+	lpf_coeff
+	SYN_coeffs() = new()
+end
 
 
 # %% Design the SYN coeffs:
-function SYN_coeffs = CARFAC_DesignSynapses(SYN_params, fs, pole_freqs)
+function CARFAC_DesignSynapses(SYN_params, fs, pole_freqs)
 
-if ~SYN_params.do_syn
-  SYN_coeffs = []     # % Just return empty if we're not doing SYN.
-  return
-end
+	if !SYN_params.do_syn
+		return nothing
+	end
 
-n_ch = length(pole_freqs);
-n_classes = SYN_params.n_classes;
+	n_ch = length(pole_freqs);
+	n_classes = SYN_params.n_classes;
 
-v_widths = SYN_params.v_width * ones(1, n_classes);
+	v_widths = SYN_params.v_width * ones(1, n_classes);
 
-# % Do some design.  First, gains to get sat_rate when sigmoid is 1, which
-# % involves the reservoir steady-state solution.
-# % Most of these are not per-channel, but could be expanded that way
-# % later if desired.
+	# % Do some design.  First, gains to get sat_rate when sigmoid is 1, which
+	# % involves the reservoir steady-state solution.
+	# % Most of these are not per-channel, but could be expanded that way
+	# % later if desired.
 
-# % Mean sat prob of spike per sample per neuron, likely same for all
-# % classes.
-# % Use names 1 for sat and 0 for spont in some of these.
-p1 = SYN_params.sat_rates / fs;
-p0 = SYN_params.spont_rates / fs;
+	# % Mean sat prob of spike per sample per neuron, likely same for all
+	# % classes.
+	# % Use names 1 for sat and 0 for spont in some of these.
+	p1 = SYN_params.sat_rates / fs;
+	p0 = SYN_params.spont_rates / fs;
 
-w1 = SYN_params.sat_reservoir;
-q1 = 1 - w1;
-# % Assume the sigmoid is switching between 0 and 1 at 50% duty cycle, so
-# % normalized mean value is 0.5 at saturation.
-s1 = 0.5;
-r1 = s1*w1;
-# % solve q1 = a1*r1 for gain coeff a1:
-a1 = q1 ./ r1;
-# % solve p1 = a2*r1 for gain coeff a2:
-a2 = p1 ./ r1;
+	w1 = SYN_params.sat_reservoir;
+	q1 = 1 - w1;
+	# % Assume the sigmoid is switching between 0 and 1 at 50% duty cycle, so
+	# % normalized mean value is 0.5 at saturation.
+	s1 = 0.5;
+	r1 = s1*w1;
+	# % solve q1 = a1*r1 for gain coeff a1:
+	a1 = q1 ./ r1;
+	# % solve p1 = a2*r1 for gain coeff a2:
+	a2 = p1 ./ r1;
 
-# % Now work out how to get the desired spont.
-r0 = p0 ./ a2;
-q0 = r0 .* a1;
-w0 = 1 - q0;
-s0 = r0 ./ w0;
-# % Solve for (negative) sigmoid midpoint offset that gets s0 right.
-offsets = log((1 - s0)./s0);
+	# % Now work out how to get the desired spont.
+	r0 = p0 ./ a2;
+	q0 = r0 .* a1;
+	w0 = 1 - q0;
+	s0 = r0 ./ w0;
+	# % Solve for (negative) sigmoid midpoint offset that gets s0 right.
+	offsets = log((1 - s0)./s0);
 
-spont_p = a2 .* w0 .* s0     # % should match p0; check it; yes it does.
+	spont_p = a2 .* w0 .* s0     # % should match p0; check it; yes it does.
 
-agc_weights = fs * SYN_params.agc_weights;
-spont_sub = (SYN_params.healthy_n_fibers .* spont_p) * agc_weights';
+	agc_weights = fs * SYN_params.agc_weights;
+	spont_sub = (SYN_params.healthy_n_fibers .* spont_p) * agc_weights';
 
-# % Copy stuff needed at run time into coeffs.
-SYN_coeffs = struct( ...
-  'n_ch', n_ch, ...
-  'n_classes', n_classes, ...
-  'n_fibers', ones(n_ch,1) * SYN_params.healthy_n_fibers, ...
-  'v_widths', v_widths, ...
-  'v_halfs', offsets .* v_widths, ...  % Same units as v_recep and v_widths.
-  'a1', a1, ...  % Feedback gain
-  'a2', a2, ...  % Output gain
-  'agc_weights', agc_weights, ... % For making a nap out to agc in.
-  'spont_p', spont_p, ... % used only to init the output LPF
-  'spont_sub', spont_sub, ...
-  'res_lpf_inits', q0, ...
-  'res_coeff', 1 - exp(-1/(SYN_params.reservoir_tau * fs)), ...
-  'lpf_coeff', 1 - exp(-1/(SYN_params.tau_lpf * fs)));
+	# % Copy stuff needed at run time into coeffs.
+	ret = SYN_coeffs()
+	ret.n_ch           = n_ch
+	ret.n_classes      = n_classes
+	ret.n_fibers       = ones(n_ch,1) * SYN_params.healthy_n_fibers
+	ret.v_widths       = v_widths
+	ret.v_halfs        = offsets .* v_widths  # % Same units as v_recep and v_widths.
+	ret.a1             = a1  # % Feedback gain
+	ret.a2             = a2  # % Output gain
+	ret.agc_weights    = agc_weights # % For making a nap out to agc in.
+	ret.spont_p        = spont_p # % used only to init the output LPF
+	ret.spont_sub      = spont_sub
+	ret.res_lpf_inits  = q0
+	ret.res_coeff      = 1 - exp(-1/(SYN_params.reservoir_tau * fs))
+	ret.lpf_coeff      = 1 - exp(-1/(SYN_params.tau_lpf * fs))
 
+	return SYN_coeffs
+end 
 
-  =#
 
 
   
