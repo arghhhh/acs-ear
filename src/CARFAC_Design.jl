@@ -189,7 +189,7 @@ end
         CF.ears                    = ears
         CF.n_ears                  = n_ears
         CF.open_loop               = 0
-        CF.linear_car              = 0
+        CF.linear_car              = false
         CF.do_syn                  = CF_SYN_params.do_syn;
 
         return CF
@@ -214,7 +214,16 @@ mutable struct CAR_coeffs_struct
 
         zr_coeffs
 
-        CAR_coeffs_struct() = new()
+	linear           # ???? not sure if this should be here
+	use_delay_buffer # ???? not sure if this should be here
+
+
+        CAR_coeffs_struct() = begin
+		r = new()
+		r.use_delay_buffer = false
+
+		return r
+	end
 end
 
 # %% Design the filter coeffs:

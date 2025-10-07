@@ -14,4 +14,5 @@ include( "CARFAC_Design.jl"         )
 include( "CARFAC_Init.jl"           )
 include( "CARFAC_CAR_Step.jl"       )
 
+include( "CARFAC_Test.jl"           )
 
