@@ -13,6 +13,9 @@ include( "SYN_params_default.jl"    )
 include( "CARFAC_Design.jl"         )
 include( "CARFAC_Init.jl"           )
 include( "CARFAC_CAR_Step.jl"       )
+include( "CARFAC_Detect.jl"         )
+include( "CARFAC_IHC_Step.jl"       )
+include( "CARFAC_SYN_Step.jl"       )
 
 include( "CARFAC_Test.jl"           )
 

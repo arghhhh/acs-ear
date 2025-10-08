@@ -142,9 +142,9 @@ end
 function SYN_Init_State(coeffs)
         n_ch = coeffs.n_ch;
         n_cl = coeffs.n_classes;
-        state = SYN_state
-        state.reservoirs     = ones(n_ch) * coeffs.res_lpf_inits  # % 0 full, 1 empty.
-        state.lpf_state     = ones(n_ch) * coeffs.spont_p
+        state = SYN_state()
+        state.reservoirs    = ones(n_ch) * transpose( coeffs.res_lpf_inits )  # % 0 full, 1 empty.
+        state.lpf_state     = ones(n_ch) * transpose( coeffs.spont_p       )
 
         return state
 end

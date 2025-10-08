@@ -17,6 +17,13 @@
 # % See the License for the specific language governing permissions and
 # % limitations under the License.
 
+
+using Printf
+using FFTW
+using Plots, ColorSchemes
+
+figures = Plots.Plot[]
+
 function CARFAC_Test(do_plots = true)
 # % CARFAC_TEST returns status = 0 if all tests pass; nonzero if fail,
 # % and prints messages about tests and failures.  Argument do_plots is
@@ -55,8 +62,6 @@ function CARFAC_Test(do_plots = true)
         return status
 end
 
-using Printf
-using FFTW
 
 function test_CAR_freq_response(do_plots)
 # % Test: Make sure that the CAR frequency response looks right.
@@ -90,6 +95,11 @@ function test_CAR_freq_response(do_plots)
         #        xlabel('Channel Number')
         #        ylabel('Frequency bin')
         #        drawnow
+
+                push!( figures, Plots.heatmap( db_spectra[1:(n_points+1), :], c=:viridis ) )
+         #       Plots.heatmap( db_spectra[1:(n_points+1), :] )
+                Plots.plot!( clim=(-20,60))
+            #    Plots.plot!( c=:jet )
         end
 
         # columns are: channel CF gain BW Q
@@ -147,270 +157,285 @@ end
 
 
 
-#= 
 
 
 
 
-function [blip_maxes, blip_ac] = run_IHC(test_freq, version, do_plots)
-fs = 40000;
-sampling_interval = 1 / fs;
-tmax = 0.28;
-t = (0:sampling_interval:(tmax - sampling_interval/2))';
-% test signal, ramping square wave gating a sinusoid:
-omega0 = 2 * pi * 25;  % for making a 25 Hz square wave envelope
-present = (1 - sign(sin(omega0 * t + pi / 2 + 1e-6))) / 2;
-stim_num = present .* floor((t / 0.04));
-% start at 0.09, 6 db below mean response threshold
-amplitude = 0.09 * 2.^stim_num;
-omega = 2 * pi * test_freq;
-quad_sin = present .* sin(omega * t);
-quad_cos = present .* cos(omega * t);
-x_in = quad_sin .* amplitude;
 
-CF = CARFAC_Design(1, fs, version);
-CF = CARFAC_Init(CF);
+function run_IHC(test_freq, version, do_plots)
 
-neuro_output = zeros(size(x_in));
-ihc_state = CF.ears(1).IHC_state;
-if CF.do_syn
-  syn_state = CF.ears(1).SYN_state;
+
+#@show test_freq version do_plots
+#error("stop")
+
+
+        fs = 40000
+        sampling_interval = 1 / fs
+        tmax = 0.28
+        t = (0:sampling_interval:(tmax - sampling_interval/2)) #'
+        # % test signal, ramping square wave gating a sinusoid:
+        omega0 = 2 * pi * 25 # % for making a 25 Hz square wave envelope
+        present = (1 .- sign.(sin.(omega0 .* t .+ ( pi / 2 + 1e-6 ) ))) ./ 2
+        stim_num = present .* floor.((t ./ 0.04))
+        # % start at 0.09, 6 db below mean response threshold
+        amplitude = 0.09 * 2 .^ stim_num
+        omega = 2 * pi * test_freq
+        quad_sin = present .* sin.(omega .* t)
+        quad_cos = present .* cos.(omega .* t)
+        x_in = quad_sin .* amplitude
+
+      #  CF = CARFAC_Design(1, fs, version)
+        CF = CARFAC_Design_version( version, 1, fs )
+        CF_state_ears = CARFAC_Init(CF)
+
+        neuro_output = zeros(size(x_in))
+        class_firings = zeros( length(x_in), 3 ) ######## MAGIC NUMBER
+        ihc_state = CF_state_ears[1].IHC_state
+        if CF.do_syn
+                syn_state = CF_state_ears[1].SYN_state
+        end
+        for k = 1:length(x_in)
+                ihc_out, ihc_state, v_recep = CARFAC_IHC_Step( x_in[k], CF.ears[1].IHC_coeffs, ihc_state)
+                if CF.do_syn # % ignore ihc_out and use receptor_potential.
+                        syn_out, firings, syn_state = CARFAC_SYN_Step( v_recep, CF.ears[1].SYN_coeffs, syn_state)
+                        # % This can go a little negative; should be zero at rest.
+                        neuro_output[k] = syn_out[1]
+                        class_firings[k, :] = firings[1, :]
+                else  # % ignore receptor_potential and use ihc_out.
+                        neuro_output[k] = ihc_out[1]
+                end
+        end
+
+        
+        if do_plots
+        #  figure
+        #  plot(t, neuro_output)
+        #  xlabel('Seconds')
+        #  title(sprintf('IHC Response for tone blips at %d Hz', test_freq))
+        #  drawnow
+        #  if CF.do_syn
+        #    figure
+        #    plot(t, class_firings)
+        #  end
+
+                p = plot(t, neuro_output)
+                push!( figures, p )
+                plot!( xlabel = "Seconds" )
+                plot!( title = "IHC Response for tone blips at $(test_freq) Hz" )
+
+
+                if CF.do_syn
+
+
+                        println("Here")
+                        p = plot(t, class_firings)
+                        push!( figures, p )
+                end
+        
+
+
+        end
+        
+        blip_maxes = []
+        blip_ac = []
+        for blip_num = 1:6
+                blip = neuro_output .* (stim_num .== blip_num)
+                blip_max = maximum(blip)
+                carrier_power = sum(blip .* quad_sin)^2 + sum(blip .* quad_cos)^2
+                carrier_rms = sqrt(carrier_power)
+                @printf "Blip %d: Max of %f, AC rms is %f\n" blip_num blip_max carrier_rms
+                push!( blip_maxes, blip_max            )
+                push!( blip_ac   , sqrt(carrier_power) )
+        end
+        return blip_maxes, blip_ac
 end
-for k = 1:length(x_in)
-  [ihc_out, ihc_state, v_recep] = CARFAC_IHC_Step( ...
-    x_in(k), CF.ears(1).IHC_coeffs, ihc_state);
-  if CF.do_syn  % ignore ihc_out and use receptor_potential.
-    [syn_out, firings, syn_state] = CARFAC_SYN_Step( ...
-      v_recep, CF.ears(1).SYN_coeffs, syn_state);
-    % This can go a little negative; should be zero at rest.
-    neuro_output(k) = syn_out(1);
-    class_firings(k, :) = firings(1, :);
-  else  % ignore receptor_potential and use ihc_out.
-    neuro_output(k) = ihc_out(1);
-  end
+
+
+function test_IHC1(do_plots)::Bool
+# % Test: Make sure that IHC (inner hair cell) runs as expected.
+
+        status = false
+
+        test_freqs = [300, 3000]
+        for k = 1:length(test_freqs)
+                if test_freqs[k] == 300
+                        expected_results = 
+                                [  2.752913   721.001685
+                                ;  4.815015   969.505412
+                                ;  7.062418  1147.285676
+                                ;  9.138118  1239.521055
+                                ; 10.969522  1277.061337
+                                ; 12.516468  1285.880084
+                                ]
+                elseif test_freqs[k] == 3000
+                        expected_results = 
+                                [  1.417657  234.098558
+                                ;  2.804747  316.717957
+                                ;  4.802444  376.787575
+                                ;  7.030791  408.011707
+                                ;  9.063014  420.602740
+                                ; 10.634581  423.674628
+                                ]
+                else
+                        @printf "No test_results for %f Hz in test_IHC.\n" test_freqs[k]
+                end
+                
+                blip_maxes, blip_ac = run_IHC(test_freqs[k], :one_cap, do_plots)
+                num_blips = length(blip_maxes)
+                if num_blips != size(expected_results, 1)
+                        @printf "Unmatched num_blips %d and expected_results rows %d in test_IHC.\n" num_blips size(expected_results, 1)
+                        status = true # was 2, but in the Julia version I'm not distinguishing being fail and error
+                else
+                        expected_maxes = expected_results[:, 1]
+                        expected_acs   = expected_results[:, 2]
+
+                        @printf "Golden data for Matlab and Python test_IHC:\n"
+                      #  @printf "        [%f, %f];\n" blip_maxes blip_ac
+                        @show blip_maxes blip_ac
+
+                        for i = 1:num_blips
+                                if abs(expected_maxes[i] - blip_maxes[i]) > expected_maxes[i]/1e6
+                                        status = true
+                                        @printf "test_IHC fails with i = %d, expected_max = %f, blip_max = %f\n" i expected_maxes[i] blip_maxes[i]
+                                end
+                                if abs(expected_acs[i] - blip_ac[i]) > expected_acs[i]/1e6
+                                        status = true
+                                        @printf "test_IHC fails with i = %d, expected_ac = %f, blip_ac = %f\n" i expected_acs[i] blip_ac[i]
+                                end
+                        end
+                end
+        end
+        report_status(status, "test_IHC")
+        return status
 end
 
-if do_plots
-  figure
-  plot(t, neuro_output)
-  xlabel('Seconds')
-  title(sprintf('IHC Response for tone blips at %d Hz', test_freq))
-  drawnow
-  if CF.do_syn
-    figure
-    plot(t, class_firings)
-  end
+
+
+function test_IHC2(do_plots)
+# % Test: Make sure that IHC (inner hair cell) runs as expected.
+# % Two-cap version with receptor potential; slightly different blips.
+
+        status = false
+
+        test_freqs = [300, 3000]
+        for k = 1:length(test_freqs)
+                if test_freqs[k] == 300
+                        expected_results = 
+                        [ 2.026682   544.901381
+                        ; 3.533259   756.736631
+                        ; 5.108579   923.142282
+                        ; 6.423783  1017.472318
+                        ; 7.454677  1059.407644
+                        ; 8.231247  1071.902335
+                        ]
+                elseif test_freqs[k] == 3000
+                        expected_results = 
+                        [ 0.698303    93.388172
+                        ; 1.520033   131.832247
+                        ; 2.660770   163.287206
+                        ; 3.872406   182.022912
+                        ; 4.909175   191.225206
+                        ; 5.666469   194.912279
+                        ]
+                else
+                        @printf "No test_results for %f Hz in test_IHC.\n" test_freqs[k]
+                end
+
+                blip_maxes, blip_ac = run_IHC(test_freqs[k], :two_cap, do_plots)
+                num_blips = length(blip_maxes)
+                if num_blips != size(expected_results, 1)
+                        @printf "Unmatched num_blips %d and expected_results rows %d in test_IHC2.\n" num_blips size(expected_results, 1)
+                        status = true # was 2
+                else
+                        expected_maxes = expected_results[:, 1]
+                        expected_acs   = expected_results[:, 2]
+
+                        @printf "Golden data for Matlab and Python test_IHC2:\n"
+                    #    @printf "        [%f, %f]\n" [blip_maxes blip_ac]
+                        @show blip_maxes blip_ac
+
+                        for i = 1:num_blips
+                                if abs(expected_maxes[i] - blip_maxes[i]) > expected_maxes[i]/1e6
+                                        status = true # was 1
+                                        @printf "test_IHC2 fails with i = %d, expected_max = %f, blip_max = %f\n" i expected_maxes[i] blip_maxes[i]
+                                end
+                                if abs(expected_acs[i] - blip_ac[i]) > expected_acs[i]/1e6
+                                        status = true # was 1
+                                        @printf "test_IHC2 fails with i = %d, expected_ac = %f, blip_ac = %f\n" i expected_acs[i] blip_ac[i]
+                                end
+                        end
+                end
+        end
+        report_status(status, "test_IHC2")
+        return status
 end
-blip_maxes = [];
-blip_ac = [];
-for blip_num = 1:6
-  blip = neuro_output .* (stim_num == blip_num);
-  blip_max = max(blip);
-  carrier_power = sum(blip .* quad_sin)^2 + sum(blip .* quad_cos)^2;
-  carrier_rms = sqrt(carrier_power);
-  fprintf(1, 'Blip %d: Max of %f, AC rms is %f\n', ...
-    blip_num, blip_max, carrier_rms);
-  blip_maxes(end+1) = blip_max;
-  blip_ac(end+1) = sqrt(carrier_power);
+
+
+
+
+
+function test_IHC3(do_plots)
+# % Test: Make sure that IHC (inner hair cell) runs as expected.
+# % Two-cap version with receptor potential; slightly different blips.
+
+        status = false
+
+        test_freqs = [300, 3000]
+        for k = 1:length(test_freqs)
+                if test_freqs[k] == 300
+                        expected_results = 
+                                [ 1.055837  184.180863
+                                ; 3.409906  483.204136
+                                ; 6.167359  837.629296
+                                ; 7.096430  956.279101
+                                ; 7.103324  927.060415
+                                ; 7.123434  895.574871
+                                ]
+                elseif test_freqs[k] == 3000
+                        expected_results = 
+                                [ 0.167683   24.929044
+                                ; 0.620939   74.045598
+                                ; 1.894064  175.367201
+                                ; 3.541070  269.322147
+                                ; 4.899921  303.684269
+                                ; 5.572545  278.428744
+                                ]
+                else
+                        @printf "No test_results for %f Hz in test_IHC.\n" test_freqs[k]
+                end
+
+                blip_maxes, blip_ac = run_IHC(test_freqs[k], :do_syn, do_plots)
+                num_blips = length(blip_maxes)
+                if num_blips != size(expected_results, 1)
+                        @printf "Unmatched num_blips %d and expected_results rows %d in test_IHC3.\n" num_blips size(expected_results, 1)
+                        status = true # was 2
+                else
+                        expected_maxes = expected_results[:, 1]
+                        expected_acs   = expected_results[:, 2]
+
+                        @printf "Golden data for Matlab and Python test_IHC3:\n"
+                      #  @printf '        [%f, %f];\n', [blip_maxes; blip_ac])
+                        @show blip_maxes blip_ac
+
+                        for i = 1:num_blips
+                                # % Lowered precision from 1e6 to 0.5e6 as the values are lower,
+                                # % and don't quite quite enough digits printed in the default format.
+                                if abs(expected_maxes[i] - blip_maxes[i]) > expected_maxes[i]/0.5e6
+                                        status = true # was 1
+                                        @printf "test_IHC3 fails with i = %d, expected_max = %f, blip_max = %f\n" i expected_maxes[i] blip_maxes[i]
+                                end
+                                if abs(expected_acs[i] - blip_ac[i]) > expected_acs[i]/0.5e6
+                                        status = true # was 1
+                                        @printf "test_IHC3 fails with i = %d, expected_ac = %f, blip_ac = %f\n" i expected_acs[i] blip_ac[i]
+                                end
+                        end
+                end
+        end
+        report_status(status, "test_IHC3")
+        return status
 end
-return
 
-
-function status = test_IHC1(do_plots)
-% Test: Make sure that IHC (inner hair cell) runs as expected.
-
-status = 0;
-
-test_freqs = [300, 3000];
-for k = 1:length(test_freqs)
-  switch test_freqs(k)
-    case 300
-      expected_results = [ ...
-        [2.752913, 721.001685];
-        [4.815015, 969.505412];
-        [7.062418, 1147.285676];
-        [9.138118, 1239.521055];
-        [10.969522, 1277.061337];
-        [12.516468, 1285.880084];
-        ];
-    case 3000
-      expected_results = [ ...
-        [1.417657, 234.098558];
-        [2.804747, 316.717957];
-        [4.802444, 376.787575];
-        [7.030791, 408.011707];
-        [9.063014, 420.602740];
-        [10.634581, 423.674628];
-        ];
-    otherwise
-      fprintf(1, 'No test_results for %f Hz in test_IHC.\n', ...
-        test_freqs(k));
-  end
-  [blip_maxes, blip_ac] = run_IHC(test_freqs(k), 'one_cap', do_plots);
-  num_blips = length(blip_maxes);
-  if num_blips ~= size(expected_results, 1)
-    fprintf(1, ...
-      'Unmatched num_blips %d and expected_results rows %d in test_IHC.\n',...
-      num_blips, size(expected_results, 1));
-    status = 2;
-  else
-    expected_maxes = expected_results(:, 1)';
-    expected_acs = expected_results(:, 2)';
-
-    fprintf(1, 'Golden data for Matlab and Python test_IHC:\n');
-    fprintf(1, '        [%f, %f];\n', [blip_maxes; blip_ac])
-
-    for i = 1:num_blips
-      if abs(expected_maxes(i) - blip_maxes(i)) > expected_maxes(i)/1e6
-        status = 1;
-        fprintf(1, ...
-          'test_IHC fails with i = %d, expected_max = %f, blip_max = %f\n', ...
-          i, expected_maxes(i), blip_maxes(i))
-      end
-      if abs(expected_acs(i) - blip_ac(i)) > expected_acs(i)/1e6
-        status = 1;
-        fprintf(1, ...
-          'test_IHC fails with i = %d, expected_ac = %f, blip_ac = %f\n', ...
-          i, expected_acs(i), blip_ac(i))
-      end
-    end
-  end
-end
-report_status(status, 'test_IHC')
-return
-
-
-function status = test_IHC2(do_plots)
-% Test: Make sure that IHC (inner hair cell) runs as expected.
-% Two-cap version with receptor potential; slightly different blips.
-
-status = 0;
-
-test_freqs = [300, 3000];
-for k = 1:length(test_freqs)
-  switch test_freqs(k)
-    case 300
-      expected_results = [ ...
-        [2.026682, 544.901381];
-        [3.533259, 756.736631];
-        [5.108579, 923.142282];
-        [6.423783, 1017.472318];
-        [7.454677, 1059.407644];
-        [8.231247, 1071.902335];
-        ];
-    case 3000
-      expected_results = [ ...
-        [0.698303, 93.388172];
-        [1.520033, 131.832247];
-        [2.660770, 163.287206];
-        [3.872406, 182.022912];
-        [4.909175, 191.225206];
-        [5.666469, 194.912279];
-        ];
-    otherwise
-      fprintf(1, 'No test_results for %f Hz in test_IHC.\n', ...
-        test_freqs(k));
-  end
-  [blip_maxes, blip_ac] = run_IHC(test_freqs(k), 'two_cap', do_plots);
-  num_blips = length(blip_maxes);
-  if num_blips ~= size(expected_results, 1)
-    fprintf(1, ...
-      'Unmatched num_blips %d and expected_results rows %d in test_IHC2.\n',...
-      num_blips, size(expected_results, 1));
-    status = 2;
-  else
-    expected_maxes = expected_results(:, 1)';
-    expected_acs = expected_results(:, 2)';
-
-    fprintf(1, 'Golden data for Matlab and Python test_IHC2:\n');
-    fprintf(1, '        [%f, %f];\n', [blip_maxes; blip_ac])
-
-    for i = 1:num_blips
-      if abs(expected_maxes(i) - blip_maxes(i)) > expected_maxes(i)/1e6
-        status = 1;
-        fprintf(1, ...
-          'test_IHC2 fails with i = %d, expected_max = %f, blip_max = %f\n', ...
-          i, expected_maxes(i), blip_maxes(i))
-      end
-      if abs(expected_acs(i) - blip_ac(i)) > expected_acs(i)/1e6
-        status = 1;
-        fprintf(1, ...
-          'test_IHC2 fails with i = %d, expected_ac = %f, blip_ac = %f\n', ...
-          i, expected_acs(i), blip_ac(i))
-      end
-    end
-  end
-end
-report_status(status, 'test_IHC2')
-return
-
-
-function status = test_IHC3(do_plots)
-% Test: Make sure that IHC (inner hair cell) runs as expected.
-% Two-cap version with receptor potential; slightly different blips.
-
-status = 0;
-
-test_freqs = [300, 3000];
-for k = 1:length(test_freqs)
-  switch test_freqs(k)
-    case 300
-      expected_results = [ ...
-        [1.055837, 184.180863];
-        [3.409906, 483.204136];
-        [6.167359, 837.629296];
-        [7.096430, 956.279101];
-        [7.103324, 927.060415];
-        [7.123434, 895.574871];
-        ];
-    case 3000
-      expected_results = [ ...
-        [0.167683, 24.929044];
-        [0.620939, 74.045598];
-        [1.894064, 175.367201];
-        [3.541070, 269.322147];
-        [4.899921, 303.684269];
-        [5.572545, 278.428744];
-        ];
-    otherwise
-      fprintf(1, 'No test_results for %f Hz in test_IHC.\n', ...
-        test_freqs(k));
-  end
-  [blip_maxes, blip_ac] = run_IHC(test_freqs(k), 'do_syn', do_plots);
-  num_blips = length(blip_maxes);
-  if num_blips ~= size(expected_results, 1)
-    fprintf(1, ...
-      'Unmatched num_blips %d and expected_results rows %d in test_IHC3.\n',...
-      num_blips, size(expected_results, 1));
-    status = 2;
-  else
-    expected_maxes = expected_results(:, 1)';
-    expected_acs = expected_results(:, 2)';
-
-    fprintf(1, 'Golden data for Matlab and Python test_IHC3:\n');
-    fprintf(1, '        [%f, %f];\n', [blip_maxes; blip_ac])
-
-    for i = 1:num_blips
-      % Lowered precision from 1e6 to 0.5e6 as the values are lower,
-      % and don't quite quite enough digits printed in the default format.
-      if abs(expected_maxes(i) - blip_maxes(i)) > expected_maxes(i)/0.5e6
-        status = 1;
-        fprintf(1, ...
-          'test_IHC3 fails with i = %d, expected_max = %f, blip_max = %f\n', ...
-          i, expected_maxes(i), blip_maxes(i))
-      end
-      if abs(expected_acs(i) - blip_ac(i)) > expected_acs(i)/0.5e6
-        status = 1;
-        fprintf(1, ...
-          'test_IHC3 fails with i = %d, expected_ac = %f, blip_ac = %f\n', ...
-          i, expected_acs(i), blip_ac(i))
-      end
-    end
-  end
-end
-report_status(status, 'test_IHC3')
-return
-
+#=
 
 function status = test_AGC_steady_state(do_plots)
 % Test: Make sure that the AGC adapts to an appropriate steady state,
@@ -506,8 +531,8 @@ else
     ];
 end
 
-if num_stages ~= size(expected_ch_amp_bws, 1)
-  fprintf(1, ...
+if num_stages != size(expected_ch_amp_bws, 1)
+  @printf ...
     'Unmatched num_stages %d and expected_ch_amp_bws rows %d in test_IHC.\n',...
     num_stages, size(expected_ch_amp_bws, 1));
   status = 2;
@@ -525,33 +550,33 @@ else
     ch_amp_bw = find_peak_response(1:CF.n_ch, state_response, amp/2);
     ch_amp_bws = [ch_amp_bws ; ch_amp_bw];  % Collect for printing Golden.
 
-    fprintf(1, ...
+    @printf ...
       'AGC Stage %d: Peak at channel %f, value is %f, fwhm %f.\n',...
       [i, ch_amp_bw]);
 
     expected_ch = expected_ch_amp_bws(i, 1);
     if abs(ch_amp_bw(1) - expected_ch) > expected_ch / 1e5
       status = 1;
-      fprintf(1, 'Peak channel location %f does not match expected %f.\n', ...
+      @printf 'Peak channel location %f does not match expected %f.\n', ...
         ch_amp_bw(1), expected_ch);
     end
     expected_amp = expected_ch_amp_bws(i, 2);
     if abs(ch_amp_bw(2) - expected_amp) > expected_amp / 1e5
       status = 1;
-      fprintf(1, 'Peak amplitude %f does not match expected %f.\n', ...
+      @printf 'Peak amplitude %f does not match expected %f.\n', ...
         ch_amp_bw(2), expected_amp);
     end
     expected_bw = expected_ch_amp_bws(i, 3);
     if abs(ch_amp_bw(3) - expected_bw) > expected_bw / 1e5
       status = 1;
-      fprintf(1, 'Peak bandwidth %f does not match expected %f.\n', ...
+      @printf 'Peak bandwidth %f does not match expected %f.\n', ...
         ch_amp_bw(3), expected_bw);
     end
   end
-  fprintf(1, 'Golden data for Matlab test_AGC_steady_state:\n');
-  fprintf(1, '  [%f, %f, %f];\n', ch_amp_bws')
-  fprintf(1, 'Golden data for Python test_agc_steady_state:\n');
-  fprintf(1, '        %d: [%f, %f, %f],\n', ...
+  @printf 'Golden data for Matlab test_AGC_steady_state:\n');
+  @printf '  [%f, %f, %f];\n', ch_amp_bws')
+  @printf 'Golden data for Python test_agc_steady_state:\n');
+  @printf '        %d: [%f, %f, %f],\n', ...
     [(0:(num_stages-1))', ch_amp_bws]')
 end
 return
@@ -765,22 +790,22 @@ end
 % Print data blocks that can be used to update golden test data.
 test_cfs = 125 * 2.^(0:6);
 % Print the golden data table for the above test center frequencies.
-fprintf(1, 'Golden data for Matlab:\n');
+@printf 'Golden data for Matlab:\n');
 for j = 1:length(test_cfs)
   cf = test_cfs(j);
   c = find_closest_channel(final_resps(:,1), cf);
   dB_change = initial_resps(c, 2) - final_resps(c, 2);
-  fprintf(1, '  %d, %2d, %12.3f, %12.3f\n', [cf, c, ...
+  @printf '  %d, %2d, %12.3f, %12.3f\n', [cf, c, ...
     initial_resps(c, 1), dB_change]);
 end
 % Print the golden data table for the Python test, 0-based channel index.
-fprintf(1, 'Golden data for Python:\n')
+@printf 'Golden data for Python:\n')
 for j = 1:length(test_cfs)
   result = results(j, :);
   cf = test_cfs(j);
   c = find_closest_channel(final_resps(:,1), cf);
   dB_change = initial_resps(c, 2) - final_resps(c, 2);
-  fprintf(1, '        %d: [%d, %.3f, %.3f],\n', [cf, c - 1, ...
+  @printf '        %d: [%d, %.3f, %.3f],\n', [cf, c - 1, ...
     initial_resps(c, 1), dB_change]);
 end
 
@@ -792,13 +817,13 @@ for j = 1:size(results, 1)
   expected_change = result(4);
   c = find_closest_channel(final_resps(:,1), cf);
   dB_change = initial_resps(expected_c, 2) - final_resps(expected_c, 2);
-  fprintf(1, ...
+  @printf ...
     'Channel %d has CF of %6f and an adaptation change of %f dB\n', ...
     expected_c, initial_resps(expected_c, 1), dB_change);
 
-  if c ~= expected_c
+  if c != expected_c
     status = 1;
-    fprintf(1, 'c = %d should equal expected_c %d\n', c, expected_c);
+    @printf 'c = %d should equal expected_c %d\n', c, expected_c);
   end
 
   if non_decimating
@@ -808,7 +833,7 @@ for j = 1:size(results, 1)
   end
   if abs(initial_resps(expected_c, 1) - expected_cf) > tolerance
     status = 1;
-    fprintf(1, ...
+    @printf ...
       'initial_resps(c, 0) = %8.3f not close to expected_cf %8.3f\n', ...
       initial_resps(c, 1), expected_cf);
   end
@@ -819,7 +844,7 @@ for j = 1:size(results, 1)
   end
   if abs(dB_change - expected_change) > tolerance
     status = 1;
-    fprintf(1, 'dB_change = %6.3f not close to expected_change %6.3f\n', ...
+    @printf 'dB_change = %6.3f not close to expected_change %6.3f\n', ...
       dB_change, expected_change);
   end
 end
@@ -867,10 +892,10 @@ for ch = 1:CF.n_ch
   max_max_rel_error = max(max_max_rel_error, max_rel);
   if max_rel > 1e-6
     status = 1;
-    fprintf(1, 'Channel %d delayed max_rel %f\n', ch, max_rel)
+    @printf 'Channel %d delayed max_rel %f\n', ch, max_rel)
   end
 end
-fprintf(1, 'Delay linear max_max_rel_error = %f\n', max_max_rel_error);
+@printf 'Delay linear max_max_rel_error = %f\n', max_max_rel_error);
 
 % Try normal nonlinear operation and see how different it is:
 CF = CARFAC_Init(CF);
@@ -893,10 +918,10 @@ for ch = 1:CF.n_ch
   max_max_rel_error = max(max_max_rel_error, max_rel);
   if max_rel > 0.025  % Needs more tolerance to pass, now it's nonlinear.
     status = 1;
-    fprintf(1, 'Channel %d delayed max_rel %f\n', ch, max_rel)
+    @printf 'Channel %d delayed max_rel %f\n', ch, max_rel)
   end
 end
-fprintf(1, 'Delay nonlinear max_max_rel_error = %f\n', max_max_rel_error);
+@printf 'Delay nonlinear max_max_rel_error = %f\n', max_max_rel_error);
 
 report_status(status, 'test_delay_buffer')
 return
@@ -954,21 +979,21 @@ tf_ratio = rms_good_ear ./ rms_mono;
 
 if decimation(2) > 1  % Classic case
   % Data from non_decimating case is not used as golden.
-  fprintf(1, 'for python, tf_ratio = [');
+  @printf 'for python, tf_ratio = [');
   for ch = 1:size(tf_ratio')
-    fprintf(1, ' %.4f,', tf_ratio(ch));
+    @printf ' %.4f,', tf_ratio(ch));
     if mod(ch, 5) == 0
-      fprintf(1, '\n');
+      @printf '\n');
     end
   end
-  fprintf(1, ']\nfor matlab, expected_tf_ratio = [');
+  @printf ']\nfor matlab, expected_tf_ratio = [');
   for ch = 1:size(tf_ratio')
-    fprintf(1, '%.4f, ', tf_ratio(ch));
+    @printf '%.4f, ', tf_ratio(ch));
     if mod(ch, 5) == 0
-      fprintf(1, '...\n');
+      @printf '...\n');
     end
   end
-  fprintf(1, '];\n');
+  @printf '];\n');
 end
 expected_tf_ratio = [1.0000, 1.0000, 1.0000, 1.0000, 1.0000, ...
   1.0000, 1.0000, 1.0000, 1.0000, 1.0000, ...
@@ -995,11 +1020,11 @@ end
 max_error = max(abs(expected_tf_ratio - tf_ratio));
 if max_error > 1e-3
   status = 1
-  fprintf(1, 'Expected TF Ratio is not within 1e-3 of TF Ratio\n');
+  @printf 'Expected TF Ratio is not within 1e-3 of TF Ratio\n');
 end
 if any(tf_ratio < 0.999) | any(tf_ratio > 1.25)
   status = 1;
-  fprintf(1, 'bm ratio is expected to be between 1 and 1.2 for noise\n');
+  @printf 'bm ratio is expected to be between 1 and 1.2 for noise\n');
 end
 return
 
@@ -1021,7 +1046,7 @@ ear_two_naps = naps(:, :, 2);
 max_error =  max(abs(ear_one_naps - ear_two_naps));
 if max_error > 1e-6
   status = 1;
-  fprintf(1, 'Failed to have both ears equal in binaural');
+  @printf 'Failed to have both ears equal in binaural');
 end
 report_status(status, 'test_multiaural_carfac');
 return
@@ -1064,11 +1089,11 @@ end
 % Expect tf_ratio low in early channels, close to 1 later.
 if any(tf_ratio(10:half_ch) > 0.11)  % 0.1 works, but seed dependent.
   status = 1;
-  fprintf(1, 'tf_ratio too high in early channels in test_OHC_health\n')
+  @printf 'tf_ratio too high in early channels in test_OHC_health\n')
 end
 if any(tf_ratio(half_ch+6:end-2) < 0.35)
   status = 1;
-  fprintf(1, 'tf_ratio too low in later channels in test_OHC_health\n')
+  @printf 'tf_ratio too low in later channels in test_OHC_health\n')
 end
 report_status(status, 'test_OHC_health')
 return
@@ -1237,9 +1262,9 @@ function report_status(status, name, extra = false)
                 end
         elseif status
                 println( "FAIL ", name )
-                if status > 1
-                        println( "(status > 1 => error in test or expected results size)" )
-                end
+        #        if status > 1
+        #                println( "(status > 1 => error in test or expected results size)" )
+         #       end
         else
                 println( "PASS ", name )
         end

@@ -37,6 +37,8 @@ function CARFAC_Detect1(x_in)
         return conductance
 end
 
+CARFAC_Detect(x_in) = CARFAC_Detect1.(x_in)
+
 #=
 function CARFAC_Detect(x_in)
         # % function conductance = CARFAC_detect(x_in)

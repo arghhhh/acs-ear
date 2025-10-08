@@ -45,6 +45,21 @@ end
 
 CF_version_keyword = :two_cap
 
+# this is a version of CARFAC_Design where the version is the first argument to allow Julia to use it 
+# as a parameter for the subsequent
+CARFAC_Design_version( CF_version_keyword = :two_cap, n_ears = 1, fs::Number = 48000.0
+		, CF_CAR_params = CAR_params_default()
+		, CF_AGC_params = AGC_params_default()
+		, CF_IHC_params = IHC_params_default(CF_version_keyword)
+		, CF_SYN_params = SYN_params_default(CF_IHC_params.do_syn)
+	) = CARFAC_Design( n_ears, fs, CF_CAR_params, CF_AGC_params, CF_IHC_params, CF_SYN_params; CF_version_keyword=CF_version_keyword )
+
+
+
+
+
+
+
 function CARFAC_Design(n_ears = 1, fs = 48000.0, 
   CF_CAR_params = CAR_params_default(), CF_AGC_params = AGC_params_default(), CF_IHC_params = IHC_params_default(CF_version_keyword), CF_SYN_params = SYN_params_default(CF_IHC_params.do_syn) ; 
   CF_version_keyword = :two_cap )
@@ -429,6 +444,11 @@ mutable struct IHC_coeffs_struct
         n_ch
         just_hwr
         lpf_coeff
+
+	out_rate
+	in_rate
+	rest_cap
+
         out1_rate
         in1_rate
         out2_rate
@@ -447,7 +467,9 @@ mutable struct IHC_state_struct
         cap2_voltage
         lpf1_state  
         lpf2_state  
-        ihc_accum   
+        ihc_accum  
+	
+	cap_voltage
 
         IHC_state_struct() = new()
 end
@@ -569,10 +591,13 @@ function CARFAC_DesignSynapses(SYN_params, fs, pole_freqs)
 		return nothing
 	end
 
+# in the MATLAB all of these are row vectors
+# - they are all column vectors here
+
 	n_ch = length(pole_freqs);
 	n_classes = SYN_params.n_classes;
 
-	v_widths = SYN_params.v_width * ones(1, n_classes);
+	v_widths = SYN_params.v_width * ones(n_classes)
 
 	# % Do some design.  First, gains to get sat_rate when sigmoid is 1, which
 	# % involves the reservoir steady-state solution.
@@ -599,21 +624,26 @@ function CARFAC_DesignSynapses(SYN_params, fs, pole_freqs)
 	# % Now work out how to get the desired spont.
 	r0 = p0 ./ a2;
 	q0 = r0 .* a1;
-	w0 = 1 - q0;
+	w0 = 1 .- q0;
 	s0 = r0 ./ w0;
 	# % Solve for (negative) sigmoid midpoint offset that gets s0 right.
-	offsets = log((1 - s0)./s0);
+	offsets = log.((1 .- s0)./s0);
 
 	spont_p = a2 .* w0 .* s0     # % should match p0; check it; yes it does.
 
 	agc_weights = fs * SYN_params.agc_weights;
-	spont_sub = (SYN_params.healthy_n_fibers .* spont_p) * agc_weights';
+
+	# this is a dot product:
+	spont_sub = ( (SYN_params.healthy_n_fibers .* spont_p)' * agc_weights )[1]
 
 	# % Copy stuff needed at run time into coeffs.
 	ret = SYN_coeffs()
 	ret.n_ch           = n_ch
 	ret.n_classes      = n_classes
-	ret.n_fibers       = ones(n_ch,1) * SYN_params.healthy_n_fibers
+
+#@show n_ch SYN_params.healthy_n_fibers
+
+	ret.n_fibers       = ones(n_ch,1) * transpose( SYN_params.healthy_n_fibers )
 	ret.v_widths       = v_widths
 	ret.v_halfs        = offsets .* v_widths  # % Same units as v_recep and v_widths.
 	ret.a1             = a1  # % Feedback gain
@@ -625,7 +655,12 @@ function CARFAC_DesignSynapses(SYN_params, fs, pole_freqs)
 	ret.res_coeff      = 1 - exp(-1/(SYN_params.reservoir_tau * fs))
 	ret.lpf_coeff      = 1 - exp(-1/(SYN_params.tau_lpf * fs))
 
-	return SYN_coeffs
+
+#@show ret
+#dump( ret )
+#error("stop")
+
+	return ret
 end 
 
 
