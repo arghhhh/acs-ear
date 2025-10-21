@@ -509,8 +509,12 @@ function test_AGC_steady_state_core(do_plots, CF)
 	#	title('Steady state spatial responses of the stages')
 	#	drawnow
 
-	#	plot( agc_response[:, end, : ]')
-	#	plot!( title = "Steady state spatial responses of the stages" )
+	
+                p = plot( agc_response[:, end, : ]')
+                push!( figures, p )
+		plot!( title = "Steady state spatial responses of the stages" )
+
+
 	end
 
 	if CF.ears[1].AGC_coeffs.simpler_decimating
@@ -589,41 +593,51 @@ function test_AGC_steady_state_core(do_plots, CF)
 	return status
 end
 
+
+
+function test_stage_g_calculation(do_plots)
+	# % Make sure the quadratic stage_g calculation agrees with the ratio of
+	# % polynomias from the book
+	status = false
+
+	fs = 22050;
+	CF = CARFAC_Design(1, fs);
+	# % CF = CARFAC_Init(CF);
+
+	if do_plots
+#		figure; clf
+		p = plot()
+                push!( figures, p )
+	end
+	for undamping = 0:0.1:1 # % including the "training" points 0, 0.5, 1.
+		ideal_g = CARFAC_Design_Stage_g(CF.ears[1].CAR_coeffs, undamping);
+		stage_g = CARFAC_Stage_g(CF.ears[1].CAR_coeffs, undamping);
+		if do_plots
+		#	plot(ideal_g, 'g-')
+		# Choose from [:auto, :solid, :dash, :dot, :dashdot, :dashdotdot]
+			plot!(ideal_g, color=:green, linestyle=:dash)
+		#	hold on
+		#	plot(stage_g, 'r.')
+			plot!(stage_g, color=:red, linestyle=:dot)
+		#	plot(1000*abs(ideal_g - stage_g), 'm+')
+			scatter!(1000*abs.(ideal_g - stage_g) )
+		#	drawnow
+			plot!( title="test stage g calculation" )
+			plot!( xlabel="channel")
+			plot!( ylabel="Stage gains and 1000*abs(error)")
+		end
+		#  % One part per thousand gain error is less than 0.01 dB.
+		if any(abs.(ideal_g - stage_g)/ideal_g .> 1e-3)
+			status = true # 1;
+		end
+	end
+
+	report_status(status, "test_stage_g_calculation")
+	return status
+end
+
+
 #=
-
-function status = test_stage_g_calculation(do_plots)
-% Make sure the quadratic stage_g calculation agrees with the ratio of
-% polynomias from the book
-status = 0;
-
-fs = 22050;
-CF = CARFAC_Design(1, fs);
-% CF = CARFAC_Init(CF);
-
-if do_plots
-  figure; clf
-end
-for undamping = 0:0.1:1  % including the "training" points 0, 0.5, 1.
-  ideal_g = CARFAC_Design_Stage_g(CF.ears(1).CAR_coeffs, undamping);
-  stage_g = CARFAC_Stage_g(CF.ears(1).CAR_coeffs, undamping);
-  if do_plots
-    plot(ideal_g, 'g-')
-    hold on
-    plot(stage_g, 'r.')
-    plot(1000*abs(ideal_g - stage_g), 'm+')
-    drawnow
-    title('test stage g calculation')
-    xlabel('channel')
-    ylabel('Stage gains and 1000*abs(error)')
-  end
-  % One part per thousand gain error is less than 0.01 dB.
-  if any(abs(ideal_g - stage_g)/ideal_g > 1e-3)
-    status = 1;
-  end
-end
-
-report_status(status, 'test_stage_g_calculation')
-return
 
 
 function status = test_whole_carfac1(do_plots)
