@@ -244,8 +244,8 @@ end
 # %% Design the filter coeffs:
 function CARFAC_DesignFilters(CAR_params, fs, pole_freqs)
 
-        @show pole_freqs
-        dump(pole_freqs)
+ #       @show pole_freqs
+ #       dump(pole_freqs)
 
         n_ch = length(pole_freqs);
 
@@ -356,7 +356,6 @@ mutable struct AGC_coeffs_struct
         AGC_coeffs_struct() = new()
 end
 
-
 # %% Design the AGC coeffs:
 function CARFAC_DesignAGC(AGC_params, fs, n_ch)
 
@@ -388,7 +387,7 @@ function CARFAC_DesignAGC(AGC_params, fs, n_ch)
         AGC_coeffs.input_gains         = zeros(n_AGC_stages) # was row vector
         AGC_coeffs.next_stage_gains    = zeros(n_AGC_stages) # was row vector
         AGC_coeffs.spatial_FIR         = zeros(3, n_AGC_stages)
-        AGC_coeffs.simpler_decimating  = all(AGC_params.decimation[2:end] == 1)
+        AGC_coeffs.simpler_decimating  = all(AGC_params.decimation[2:end] .== 1)
 
         decim = 1;
         for stage = 1:n_AGC_stages

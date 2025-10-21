@@ -16,6 +16,7 @@ include( "CARFAC_CAR_Step.jl"       )
 include( "CARFAC_Detect.jl"         )
 include( "CARFAC_IHC_Step.jl"       )
 include( "CARFAC_SYN_Step.jl"       )
+include( "CARFAC_AGC_Step.jl"       )
 
 include( "CARFAC_Test.jl"           )
 

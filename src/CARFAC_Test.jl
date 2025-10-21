@@ -435,152 +435,161 @@ function test_IHC3(do_plots)
         return status
 end
 
+
+
+function test_AGC_steady_state(do_plots)
+# % Test: Make sure that the AGC adapts to an appropriate steady state,
+# % like figure 19.7
+	CF = CARFAC_Design(1, 22050) # % With default [8, 2, 2, 2] decimation.
+	status = test_AGC_steady_state_core(do_plots, CF)
+	report_status(status, "test_AGC_steady_state" )
+	return status
+end
+
+
+
+function  test_AGC_steady_state_simpler_decimating(do_plots)
+	# % Test: Make sure that the AGC adapts to an appropriate steady state,
+	# % like figure 19.7
+	CAR_params = CAR_params_default()
+	AGC_params = AGC_params_default()
+	AGC_params.decimation = [8, 1, 1, 1]; # % Override default, simpler.
+	CF = CARFAC_Design(1, 22050, CAR_params, AGC_params)
+	status = test_AGC_steady_state_core(do_plots, CF)
+	report_status(status, "test_AGC_steady_state_simpler_decimating")
+	return status
+end
+
+
+function test_AGC_steady_state_non_decimating(do_plots)
+	# % Test: Make sure that the AGC adapts to an appropriate steady state,
+	# % like figure 19.7
+	CAR_params = CAR_params_default()
+	AGC_params = AGC_params_default()
+	AGC_params.decimation = [1, 1, 1, 1] # % Override default.
+	CF = CARFAC_Design(1, 22050, CAR_params, AGC_params)
+	status = test_AGC_steady_state_core(do_plots, CF)
+	report_status(status, "test_AGC_steady_state_non_decimating")
+	return status
+end
+
+
+
+function test_AGC_steady_state_core(do_plots, CF)
+# % Test: Make sure 2025 non-decimating changes is "close enough" to same.
+
+	status = false
+
+	CF_state_ears = CARFAC_Init(CF)
+	agc_input = zeros(CF.n_ch)
+	test_channel = 40
+	n_points = 16384
+	num_stages = CF.AGC_params.n_stages # % 4
+	#decim = CF.ears.AGC_coeffs.decimation(1) # % 8
+	decim = CF.ears[1].AGC_coeffs.decimation[1] # % 8
+	agc_response = zeros(num_stages, div(n_points , decim), CF.n_ch)
+	num_outputs = 0
+	for i = 1:n_points
+		agc_input[test_channel] = 100 # % Leave other channels at 0 input.
+		agc_state, agc_updated = CARFAC_AGC_Step(agc_input, CF.ears[1].AGC_coeffs, CF_state_ears[1].AGC_state)
+		CF_state_ears[1].AGC_state = agc_state;
+		if agc_updated # % Every 8 samples.
+			num_outputs = num_outputs + 1
+			for stage = 1:num_stages
+				agc_response[stage, num_outputs, :] = agc_state.AGC_memory[:, stage]'
+			end
+		end
+	end
+
+	# % Test: Plot spatial response to match Figure 19.7
+	if do_plots
+	#	figure
+	#	hold on
+	#	plot(squeeze(agc_response(:, end, :))')
+	#	title('Steady state spatial responses of the stages')
+	#	drawnow
+
+	#	plot( agc_response[:, end, : ]')
+	#	plot!( title = "Steady state spatial responses of the stages" )
+	end
+
+	if CF.ears[1].AGC_coeffs.simpler_decimating
+		# % 2025 decimating way is a little higher/sharper near the peak.
+		if CF.ears[1].AGC_coeffs.decimation[1] == 1
+			expected_ch_amp_bws =  # % [1, 1, 1, 1] non-decimating
+				[ 39.680614  9.160676  8.470642
+				; 39.760187  4.531205  7.819946
+				; 39.828831  2.117139  6.951839
+				; 39.896631  0.833373  5.552264
+				]
+		else
+			expected_ch_amp_bws =   # % [8, 1, 1, 1] simpler decimating
+				[ 39.057409  8.530716  9.337657
+				; 39.630745  4.300441  8.401784
+				; 39.793843  2.058044  7.248180
+				; 39.886956  0.819509  5.714414
+				]
+		end
+	else
+		expected_ch_amp_bws = # % [8, 2, 2, 2] classic v1/v2
+			[ 39.033166  8.359763  9.598703
+			; 39.201534  4.083376  9.019020
+			; 39.374404  1.878256  8.219043
+			; 39.565957  0.712351  6.994498
+			]
+	end
+
+	if num_stages != size(expected_ch_amp_bws, 1)
+		@printf "Unmatched num_stages %d and expected_ch_amp_bws rows %d in test_IHC.\n" num_stages size(expected_ch_amp_bws, 1)
+		status = true # 2;
+	else
+		ch_amp_bws = []
+		for i = 1:num_stages
+			# % Find_peak_response wants to find the width at a fixed level (3 dB)
+			# % below the peak.  We call this function twice: the first time with
+			# % a simple estimate of the max; then a second time with a threshold
+			# % that is 50% down from the interpolated peak amplitude to get width.
+		#	state_response = squeeze(agc_response[i, end, :])'
+#		@show typeof( agc_response )
+#		@show size(agc_response)
+#		@show agc_response[i, end, :]
+			state_response = (agc_response[i, end, :])'
+		#	amp = max(state_response)
+			amp = maximum(state_response)
+		#	@show amp
+			ch_amp_bw = find_peak_response(1:CF.n_ch, state_response, amp/2)
+			amp = ch_amp_bw[2]
+			ch_amp_bw = find_peak_response(1:CF.n_ch, state_response, amp/2)
+			ch_amp_bws = [ch_amp_bws ; ch_amp_bw] # % Collect for printing Golden.
+
+			@printf "AGC Stage %d: Peak at channel %f, value is %f, fwhm %f.\n" i ch_amp_bw...
+
+			expected_ch = expected_ch_amp_bws[i, 1]
+			if abs(ch_amp_bw[1] - expected_ch) > expected_ch / 1e5
+				status = true # 1;
+				@printf "Peak channel location %f does not match expected %f.\n" ch_amp_bw[1] expected_ch
+			end
+			expected_amp = expected_ch_amp_bws[i, 2]
+			if abs(ch_amp_bw[2] - expected_amp) > expected_amp / 1e5
+				status = true # 1;
+				@printf "Peak amplitude %f does not match expected %f.\n" ch_amp_bw[2] expected_amp
+			end
+			expected_bw = expected_ch_amp_bws[i, 3]
+			if abs(ch_amp_bw[3] - expected_bw) > expected_bw / 1e5
+				status = true # 1;
+				@printf "Peak bandwidth %f does not match expected %f.\n" ch_amp_bw[3] expected_bw
+			end
+		end
+		@printf "Golden data for Matlab test_AGC_steady_state:\n"
+		# @printf "  [%f, %f, %f];\n"  ch_amp_bws...
+		@show ch_amp_bws
+		@printf "Golden data for Python test_agc_steady_state:\n"
+		# @printf "        %d: [%f, %f, %f],\n" (0:(num_stages-1))' ch_amp_bws...
+	end
+	return status
+end
+
 #=
-
-function status = test_AGC_steady_state(do_plots)
-% Test: Make sure that the AGC adapts to an appropriate steady state,
-% like figure 19.7
-CF = CARFAC_Design(1, 22050);  % With default [8, 2, 2, 2] decimation.
-status = test_AGC_steady_state_core(do_plots, CF);
-report_status(status, 'test_AGC_steady_state')
-return
-
-
-function status = test_AGC_steady_state_simpler_decimating(do_plots)
-% Test: Make sure that the AGC adapts to an appropriate steady state,
-% like figure 19.7
-CAR_params = CAR_params_default;
-AGC_params = AGC_params_default;
-AGC_params.decimation = [8, 1, 1, 1];  % Override default, simpler.
-CF = CARFAC_Design(1, 22050, CAR_params, AGC_params);
-status = test_AGC_steady_state_core(do_plots, CF);
-report_status(status, 'test_AGC_steady_state_simpler_decimating')
-return
-
-
-function status = test_AGC_steady_state_non_decimating(do_plots)
-% Test: Make sure that the AGC adapts to an appropriate steady state,
-% like figure 19.7
-CAR_params = CAR_params_default;
-AGC_params = AGC_params_default;
-AGC_params.decimation = [1, 1, 1, 1];  % Override default.
-CF = CARFAC_Design(1, 22050, CAR_params, AGC_params);
-status = test_AGC_steady_state_core(do_plots, CF);
-report_status(status, 'test_AGC_steady_state_non_decimating')
-return
-
-
-function status = test_AGC_steady_state_core(do_plots, CF)
-% Test: Make sure 2025 non-decimating changes is "close enough" to same.
-
-status = 0;
-
-CF = CARFAC_Init(CF);
-agc_input = zeros(CF.n_ch, 1);
-test_channel = 40;
-n_points = 16384;
-num_stages = CF.AGC_params.n_stages;  % 4
-decim = CF.ears.AGC_coeffs.decimation(1);  % 8
-agc_response = zeros(num_stages, floor(n_points / decim), CF.n_ch);
-num_outputs = 0;
-for i = 1:n_points
-  agc_input(test_channel) = 100;  % Leave other channels at 0 input.
-  [agc_state, agc_updated] = CARFAC_AGC_Step(agc_input, ...
-    CF.ears(1).AGC_coeffs, CF.ears(1).AGC_state);
-  CF.ears(1).AGC_state = agc_state;
-  if agc_updated  % Every 8 samples.
-    num_outputs = num_outputs + 1;
-    for stage = 1:num_stages
-      agc_response(stage, num_outputs, :) = agc_state.AGC_memory(:, stage)';
-    end
-  end
-end
-
-% Test: Plot spatial response to match Figure 19.7
-if do_plots
-  figure
-  hold on
-  plot(squeeze(agc_response(:, end, :))')
-  title('Steady state spatial responses of the stages')
-  drawnow
-end
-
-if CF.ears(1).AGC_coeffs.simpler_decimating
-  % 2025 decimating way is a little higher/sharper near the peak.
-  if CF.ears(1).AGC_coeffs.decimation(1) == 1
-    expected_ch_amp_bws = [ ...  % [1, 1, 1, 1] non-decimating
-      [39.680614, 9.160676, 8.470642];
-      [39.760187, 4.531205, 7.819946];
-      [39.828831, 2.117139, 6.951839];
-      [39.896631, 0.833373, 5.552264];
-      ];
-  else
-    expected_ch_amp_bws = [ ...  % [8, 1, 1, 1] simpler decimating
-      [39.057409, 8.530716, 9.337657];
-      [39.630745, 4.300441, 8.401784];
-      [39.793843, 2.058044, 7.248180];
-      [39.886956, 0.819509, 5.714414];
-      ];
-  end
-else
-  expected_ch_amp_bws = [ ...  % [8, 2, 2, 2] classic v1/v2
-    [39.033166, 8.359763, 9.598703];
-    [39.201534, 4.083376, 9.019020];
-    [39.374404, 1.878256, 8.219043];
-    [39.565957, 0.712351, 6.994498];
-    ];
-end
-
-if num_stages != size(expected_ch_amp_bws, 1)
-  @printf ...
-    'Unmatched num_stages %d and expected_ch_amp_bws rows %d in test_IHC.\n',...
-    num_stages, size(expected_ch_amp_bws, 1));
-  status = 2;
-else
-  ch_amp_bws = [];
-  for i = 1:num_stages
-    % Find_peak_response wants to find the width at a fixed level (3 dB)
-    % below the peak.  We call this function twice: the first time with
-    % a simple estimate of the max; then a second time with a threshold
-    % that is 50% down from the interpolated peak amplitude to get width.
-    state_response = squeeze(agc_response(i, end, :))';
-    amp = max(state_response);
-    ch_amp_bw = find_peak_response(1:CF.n_ch, state_response, amp/2);
-    amp = ch_amp_bw(2);
-    ch_amp_bw = find_peak_response(1:CF.n_ch, state_response, amp/2);
-    ch_amp_bws = [ch_amp_bws ; ch_amp_bw];  % Collect for printing Golden.
-
-    @printf ...
-      'AGC Stage %d: Peak at channel %f, value is %f, fwhm %f.\n',...
-      [i, ch_amp_bw]);
-
-    expected_ch = expected_ch_amp_bws(i, 1);
-    if abs(ch_amp_bw(1) - expected_ch) > expected_ch / 1e5
-      status = 1;
-      @printf 'Peak channel location %f does not match expected %f.\n', ...
-        ch_amp_bw(1), expected_ch);
-    end
-    expected_amp = expected_ch_amp_bws(i, 2);
-    if abs(ch_amp_bw(2) - expected_amp) > expected_amp / 1e5
-      status = 1;
-      @printf 'Peak amplitude %f does not match expected %f.\n', ...
-        ch_amp_bw(2), expected_amp);
-    end
-    expected_bw = expected_ch_amp_bws(i, 3);
-    if abs(ch_amp_bw(3) - expected_bw) > expected_bw / 1e5
-      status = 1;
-      @printf 'Peak bandwidth %f does not match expected %f.\n', ...
-        ch_amp_bw(3), expected_bw);
-    end
-  end
-  @printf 'Golden data for Matlab test_AGC_steady_state:\n');
-  @printf '  [%f, %f, %f];\n', ch_amp_bws')
-  @printf 'Golden data for Python test_agc_steady_state:\n');
-  @printf '        %d: [%f, %f, %f],\n', ...
-    [(0:(num_stages-1))', ch_amp_bws]')
-end
-return
-
 
 function status = test_stage_g_calculation(do_plots)
 % Make sure the quadratic stage_g calculation agrees with the ratio of
@@ -1268,6 +1277,10 @@ function report_status(status, name, extra = false)
         else
                 println( "PASS ", name )
         end
+
+	if status
+		error("Immediate fail")
+	end
 end
 
 
