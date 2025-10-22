@@ -934,75 +934,85 @@ global dbg2 = initial_freq_response
 	return status
 end
 
-#= 
 
-function status = test_delay_buffer(do_plots)
-% Test: Verify simple delay of linear impulse response.
 
-status = 0;
+function test_delay_buffer(do_plots)
+	# % Test: Verify simple delay of linear impulse response.
 
-fs = 22050;
+	status = false;
 
-impulse_dur = 0.1;  % Short impulse.
-impulse = zeros(round(impulse_dur*fs), 1);
-impulse(1) = 1e-4;
+	fs = 22050;
 
-CF = CARFAC_Design(1, fs);
+	impulse_dur = 0.1;  # % Short impulse.
+	impulse = zeros(round( Int, impulse_dur*fs), 1);
+	impulse[1] = 1e-4;
 
-CF = CARFAC_Init(CF);
-CF.open_loop = 1;  % For measuring impulse response.
-CF.linear_car = 1;  % For measuring impulse response.
-CF.use_delay_buffer = 0;  % No delay per stage.
-[~, CF, bm_initial] = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
+	CF = CARFAC_Design(1, fs);
 
-CF = CARFAC_Init(CF);
-CF.use_delay_buffer = 1;  % Add a delay per stage.
-[~, CF, bm_delayed] = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
+	CF_state_ears = CARFAC_Init(CF);
+	CF.open_loop   = true # 1;  # % For measuring impulse response.
+	CF.linear_car  = true # 1;  # % For measuring impulse response.
+	CF.use_delay_buffer = false # 0;  # % No delay per stage.
+	# [~, CF, bm_initial] = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
+	(; CF, CF_state_ears, BM ) = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
+	bm_initial = BM
 
-max_max_rel_error = 0;
-for ch = 1:CF.n_ch
-  impresp = bm_initial(1:(end-ch), ch);
-  delayed = bm_delayed(ch:end-1, ch);
-  max_abs = max(abs(impresp));
-  max_abs_error = max(abs(impresp - delayed));
-  max_rel = max_abs_error / max_abs;
-  max_max_rel_error = max(max_max_rel_error, max_rel);
-  if max_rel > 1e-6
-    status = 1;
-    @printf 'Channel %d delayed max_rel %f\n', ch, max_rel)
-  end
+	CF_state_ears = CARFAC_Init(CF);
+	CF.use_delay_buffer = true;  # % Add a delay per stage.
+	# [~, CF, bm_delayed] = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
+	(; CF, CF_state_ears, BM ) = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
+	bm_delayed = BM
+
+	max_max_rel_error = 0;
+	for ch = 1:CF.n_ch
+		impresp = bm_initial[1:(end-ch), ch];
+		delayed = bm_delayed[ch:end-1, ch];
+		max_abs = maximum(abs.(impresp));
+		max_abs_error = maximum(abs.(impresp - delayed));
+		max_rel = max_abs_error / max_abs;
+		max_max_rel_error = max(max_max_rel_error, max_rel);
+		if max_rel > 1e-6
+			status = true;
+			@printf "Channel %d delayed max_rel %f\n" ch max_rel
+		end
+	end
+	@printf "Delay linear max_max_rel_error = %f\n" max_max_rel_error
+
+	# % Try normal nonlinear operation and see how different it is:
+	CF_state_ears = CARFAC_Init(CF);
+	CF.open_loop = false;  # % Let the AGC work.
+	CF.linear_car = false;  # % Let the OHC NLF work.
+	CF.use_delay_buffer = false;  # % No delay per stage.
+	# [~, CF, bm_initial] = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
+	(; CF, CF_state_ears, BM ) = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
+	bm_initial = BM
+
+	CF_state_ears = CARFAC_Init(CF);  # % Re-Init to reset AGC state to zero.
+	CF.use_delay_buffer = true;  # % Add a delay per stage.
+	# [~, CF, bm_delayed] = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
+	(; CF, CF_state_ears, BM ) = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
+	bm_delayed = BM
+
+	max_max_rel_error = 0;
+	for ch = 1:CF.n_ch
+		impresp = bm_initial[1:(end-ch), ch];
+		delayed = bm_delayed[ch:end-1, ch];
+		max_abs = maximum(abs.(impresp));
+		max_abs_error = maximum(abs.(impresp - delayed));
+		max_rel = max_abs_error / max_abs;
+		max_max_rel_error = max(max_max_rel_error, max_rel);
+		if max_rel > 0.025  # % Needs more tolerance to pass, now it's nonlinear.
+			status = true;
+			@printf "Channel %d delayed max_rel %f\n" ch max_rel
+		end
+	end
+	@printf "Delay nonlinear max_max_rel_error = %f\n" max_max_rel_error
+
+	report_status(status, "test_delay_buffer")
+	return status
 end
-@printf 'Delay linear max_max_rel_error = %f\n', max_max_rel_error);
 
-% Try normal nonlinear operation and see how different it is:
-CF = CARFAC_Init(CF);
-CF.open_loop = 0;  % Let the AGC work.
-CF.linear_car = 0;  % Let the OHC NLF work.
-CF.use_delay_buffer = 0;  % No delay per stage.
-[~, CF, bm_initial] = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
-
-CF = CARFAC_Init(CF);  % Re-Init to reset AGC state to zero.
-CF.use_delay_buffer = 1;  % Add a delay per stage.
-[~, CF, bm_delayed] = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
-
-max_max_rel_error = 0;
-for ch = 1:CF.n_ch
-  impresp = bm_initial(1:(end-ch), ch);
-  delayed = bm_delayed(ch:end-1, ch);
-  max_abs = max(abs(impresp));
-  max_abs_error = max(abs(impresp - delayed));
-  max_rel = max_abs_error / max_abs;
-  max_max_rel_error = max(max_max_rel_error, max_rel);
-  if max_rel > 0.025  % Needs more tolerance to pass, now it's nonlinear.
-    status = 1;
-    @printf 'Channel %d delayed max_rel %f\n', ch, max_rel)
-  end
-end
-@printf 'Delay nonlinear max_max_rel_error = %f\n', max_max_rel_error);
-
-report_status(status, 'test_delay_buffer')
-return
-
+#=
 
 function status = test_multiaural_silent_channel(do_plots)
 status = test_multiaural_silent_core(do_plots, [8, 2, 2, 2]);
