@@ -648,14 +648,14 @@ end
 
 
 function test_whole_carfac2(do_plots)
-	status = test_whole_carfac(do_plots, :two_cap, 0);
+	status = test_whole_carfac(do_plots, :two_cap, false);
 	report_status(status, "test_whole_carfac2")
 	return status
 end
 
 
 function test_whole_carfac3(do_plots)
-	status = test_whole_carfac(do_plots, :do_syn, 0);
+	status = test_whole_carfac(do_plots, :do_syn, false);
 	report_status(status, "test_whole_carfac3")
 	return status
 end
@@ -663,21 +663,21 @@ end
 
 
 function test_whole_carfac1_non_decimating(do_plots)
-	status = test_whole_carfac(do_plots, :one_cap, 1);
+	status = test_whole_carfac(do_plots, :one_cap, true);
 	report_status(status, "test_whole_carfac4")
 	return status
 end
 
 
 function test_whole_carfac2_non_decimating(do_plots)
-	status = test_whole_carfac(do_plots, :two_cap, 1);
+	status = test_whole_carfac(do_plots, :two_cap, true);
 	report_status(status, "test_whole_carfac5")
 	return status
 end
 
 
 function test_whole_carfac3_non_decimating(do_plots)
-	status = test_whole_carfac(do_plots, :do_syn, 1);
+	status = test_whole_carfac(do_plots, :do_syn, true);
 	report_status(status, "test_whole_carfac6")
 	return status
 end
@@ -704,10 +704,11 @@ function test_whole_carfac(do_plots, version_string, non_decimating)
 	impulse[1] = 1e-4; # % Small amplitude impulse to keep it pretty linear
 
 	if non_decimating
-		CAR_params = CAR_params_default;
-		AGC_params = AGC_params_default;
+		CAR_params = CAR_params_default();
+		AGC_params = AGC_params_default();
 		AGC_params.decimation = [1, 1, 1, 1]; # % Override default.
-		CF = CARFAC_Design(1, 22050, CAR_params, AGC_params, version_string);
+	#	CF = CARFAC_Design(1, 22050, CAR_params, AGC_params, version_string);
+		CF = CARFAC_Design_version( version_string, 1, 22050, CAR_params, AGC_params );
 	else
 	#	CF = CARFAC_Design(1, 22050, version_string); # % With default decimation.
 	# use alternate version with the design string up front:

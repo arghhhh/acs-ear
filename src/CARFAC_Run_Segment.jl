@@ -131,7 +131,7 @@ function CARFAC_Run_Segment(CF, CF_state_ears, input_waves, do_BM = true )
                         if CF.do_syn
                                 # % Use v_recep from IHC_Step to
                                 # % update the SYNapse state and get firings and new nap.
-                                syn_out, firings, CF_state_ears[ear].SYN_state = CARFAC_SYN_Step( v_recep, CF_state_ears[ear].SYN_coeffs, CF_state_ears[ear].SYN_state);
+                                syn_out, firings, CF_state_ears[ear].SYN_state = CARFAC_SYN_Step( v_recep, CF.ears[ear].SYN_coeffs, CF_state_ears[ear].SYN_state);
                                 # % Use sum over syn_outs classes, appropriately scaled, as nap to agc.
                                 # % firings always positive, unless v2 ihc_out.
                                 # % syn_out can go a little negative; should be zero at rest.
