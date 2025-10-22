@@ -39,6 +39,7 @@ mutable struct CARFAC
         open_loop
         linear_car
         do_syn
+        use_delay_buffer
 
         CARFAC() = new()
 end
@@ -153,7 +154,7 @@ end
 =#
 
 
-
+@show CF_CAR_params
 
 # % First count how many filter stages (PZFC/CARFAC channels):
 pole_Hz = CF_CAR_params.first_pole_theta * fs / (2*pi)
@@ -203,9 +204,10 @@ end
         CF.pole_freqs              = pole_freqs
         CF.ears                    = ears
         CF.n_ears                  = n_ears
-        CF.open_loop               = 0
+        CF.open_loop               = false
         CF.linear_car              = false
         CF.do_syn                  = CF_SYN_params.do_syn;
+        CF.use_delay_buffer        = false # DMH not sure about the default here - used by CARFAC_Run_Segment
 
         return CF
 end
