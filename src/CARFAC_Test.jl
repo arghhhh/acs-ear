@@ -1014,109 +1014,153 @@ function test_delay_buffer(do_plots)
 	return status
 end
 
-#=
-
-function status = test_multiaural_silent_channel(do_plots)
-status = test_multiaural_silent_core(do_plots, [8, 2, 2, 2]);
-report_status(status, 'test_multiaural_silent_channel_carfac');
 
 
-function status = test_multiaural_silent_channel_simpler_decimating(do_plots)
-status = test_multiaural_silent_core(do_plots, [8, 1, 1, 1]);
-report_status(status, 'test_multiaural_silent_channel_simpler_decimating');
+function test_multiaural_silent_channel(do_plots)
+	status = test_multiaural_silent_core(do_plots, [8, 2, 2, 2]);
+	report_status(status, "test_multiaural_silent_channel_carfac");
+	return status
+end
 
 
-function status = test_multiaural_silent_channel_non_decimating(do_plots)
-status = test_multiaural_silent_core(do_plots, [1, 1, 1, 1]);
-report_status(status, 'test_multiaural_silent_channel_non_decimating');
+function test_multiaural_silent_channel_simpler_decimating(do_plots)
+	status = test_multiaural_silent_core(do_plots, [8, 1, 1, 1]);
+	report_status(status, "test_multiaural_silent_channel_simpler_decimating");
+	return status
+end
 
 
-function status = test_multiaural_silent_core(do_plots, decimation)
-% Test multiaural functionality with 2 ears. Runs a 50ms sample of a pair of
-% C Major chords, and tests a binaural carfac, with 1 silent ear against
-% a simple monoaural carfac with only the chords.
+function test_multiaural_silent_channel_non_decimating(do_plots)
+	status = test_multiaural_silent_core(do_plots, [1, 1, 1, 1]);
+	report_status(status, "test_multiaural_silent_channel_non_decimating");
+	return status
+end
+
+
+function test_multiaural_silent_core(do_plots, decimation)
+# % Test multiaural functionality with 2 ears. Runs a 50ms sample of a pair of
+# % C Major chords, and tests a binaural carfac, with 1 silent ear against
+# % a simple monoaural carfac with only the chords.
 %
-% Tests that:
-% 1. The ratio of the BM in total is within an expected ratio [1, 1.25]
-% 2. Checks a golden set against a precise set of ratios for these chords
-% The latter is to ensure identical behavior in python.
-status = 0;
-fs = 22050;
-t = (0:(1/fs):(0.05 - 1/fs))';  % 50ms
-amplitude = 1e-3;  % -70 dBFS, around 30-40 dB SPL
+# % Tests that:
+# % 1. The ratio of the BM in total is within an expected ratio [1, 1.25]
+# % 2. Checks a golden set against a precise set of ratios for these chords
+# % The latter is to ensure identical behavior in python.
+	status = false # 0;
+	fs = 22050
+	t = (0:(1/fs):(0.05 - 1/fs)) # ';  # % 50ms
+	amplitude = 1e-3  # % -70 dBFS, around 30-40 dB SPL
 
-% c major chord of c-e-g at 523.25, 659.25 and 783.99
-% and 32.7, 41.2 and 49
-freqs = [523.25 659.25 783.99 32.7 41.2 49];
-c_chord = amplitude * sum(sin(2 * pi * t * freqs), 2);
-binaural_audio = [c_chord, zeros(size(t))];
+	# % c major chord of c-e-g at 523.25, 659.25 and 783.99
+	# % and 32.7, 41.2 and 49
+	freqs = [523.25 659.25 783.99 32.7 41.2 49]
+	c_chord = amplitude * sum(sin.(2 * pi * t * freqs), dims=2)
+	binaural_audio = [c_chord  zeros(size(t))]
 
-version_string = 'one_cap';  % Legacy test.
-CAR_params = CAR_params_default;
-AGC_params = AGC_params_default;
-AGC_params.decimation = decimation;  % Override default.
-CF = CARFAC_Design(2, 22050, CAR_params, AGC_params, version_string);
-MONO_CF = CARFAC_Design(1, fs, CAR_params, AGC_params, version_string);
-CF = CARFAC_Init(CF);
-MONO_CF = CARFAC_Init(MONO_CF);
-[naps, CF, bm_baseline] = CARFAC_Run_Segment(CF, CF_state_ears, binaural_audio);
-[mono_naps, MONO_CF, mono_bm_baseline] = CARFAC_Run_Segment(MONO_CF, MONO_CF_state_ears, c_chord);
-good_ear_bm = bm_baseline(:, :, 1);
-rms_good_ear = rms(good_ear_bm);
-rms_mono = rms(mono_bm_baseline);
-tf_ratio = rms_good_ear ./ rms_mono;
+	version_string = :one_cap;  # % Legacy test.
+	CAR_params = CAR_params_default()
+	AGC_params = AGC_params_default()
+	AGC_params.decimation = decimation;  # % Override default.
+	#CF = CARFAC_Design(2, 22050, CAR_params, AGC_params, version_string);
+	# use alternate version with the design string up front:
+	CF = CARFAC_Design_version( version_string, 2, 22050, CAR_params, AGC_params )
+	# MONO_CF = CARFAC_Design(1, fs, CAR_params, AGC_params, version_string);
+	MONO_CF = CARFAC_Design_version(version_string, 1, fs, CAR_params, AGC_params );
+	
+	CF_state_ears = CARFAC_Init(CF);
+	MONO_CF_state_ears = CARFAC_Init(MONO_CF);
+	#(naps, CF, bm_baseline) = CARFAC_Run_Segment(CF, CF_state_ears, binaural_audio);
+	r = CARFAC_Run_Segment(CF, CF_state_ears, binaural_audio);
+	naps = r.naps
+	CF = r.CF
+	CF_state_ears = r.CF_state_ears
+	bm_baseline = r.BM
 
-if decimation(2) > 1  % Classic case
-  % Data from non_decimating case is not used as golden.
-  @printf 'for python, tf_ratio = [');
-  for ch = 1:size(tf_ratio')
-    @printf ' %.4f,', tf_ratio(ch));
-    if mod(ch, 5) == 0
-      @printf '\n');
-    end
-  end
-  @printf ']\nfor matlab, expected_tf_ratio = [');
-  for ch = 1:size(tf_ratio')
-    @printf '%.4f, ', tf_ratio(ch));
-    if mod(ch, 5) == 0
-      @printf '...\n');
-    end
-  end
-  @printf '];\n');
-end
-expected_tf_ratio = [1.0000, 1.0000, 1.0000, 1.0000, 1.0000, ...
-  1.0000, 1.0000, 1.0000, 1.0000, 1.0000, ...
-  1.0000, 1.0000, 1.0000, 1.0000, 1.0000, ...
-  1.0000, 1.0000, 1.0000, 1.0000, 1.0000, ...
-  1.0000, 1.0000, 1.0000, 1.0000, 1.0000, ...
-  1.0000, 1.0000, 1.0000, 1.0000, 1.0000, ...
-  1.0000, 1.0000, 1.0001, 1.0001, 1.0001, ...
-  1.0002, 1.0004, 1.0007, 1.0018, 1.0050, ...
-  1.0133, 1.0290, 1.0463, 1.0562, 1.0552, ...
-  1.0505, 1.0497, 1.0417, 1.0426, 1.0417, ...
-  1.0320, 1.0110, 1.0093, 1.0124, 1.0065, ...
-  1.0132, 1.0379, 1.0530, 1.0503, 1.0477, ...
-  1.0556, 1.0659, 1.0739, 1.0745, 1.0762, ...
-  1.0597, 1.0200, 1.0151, 1.0138, 1.0129, ...
-  1.0182, ];
-if decimation(2) == 1
-  % Later channels are dominated by aliasing effects, which are different
-  % with the 2025 non-decimating version, so ignore the tiny responses
-  % there.
-  tf_ratio = tf_ratio(1:52);
-  expected_tf_ratio = expected_tf_ratio(1:52);
-end
-max_error = max(abs(expected_tf_ratio - tf_ratio));
-if max_error > 1e-3
-  status = 1
-  @printf 'Expected TF Ratio is not within 1e-3 of TF Ratio\n');
-end
-if any(tf_ratio < 0.999) | any(tf_ratio > 1.25)
-  status = 1;
-  @printf 'bm ratio is expected to be between 1 and 1.2 for noise\n');
-end
-return
 
+	# (mono_naps, MONO_CF, mono_bm_baseline) = CARFAC_Run_Segment(MONO_CF, MONO_CF_state_ears, c_chord);
+	r = CARFAC_Run_Segment(MONO_CF, MONO_CF_state_ears, c_chord);
+	mono_naps          = r.naps
+	MONO_CF            = r.CF
+	MONO_CF_state_ears = r.CF_state_ears
+	mono_bm_baseline   = r.BM[:,:,1]
+
+	good_ear_bm = bm_baseline[:, :, 1];
+
+	# MATLAB rms works over columns:
+	rms(v) = sqrt.( sum( v .* v ; dims = 1 ) / size(v)[1] )
+
+	
+
+	rms_good_ear = rms(good_ear_bm);
+	rms_mono = rms(mono_bm_baseline);
+	tf_ratio = rms_good_ear ./ rms_mono;
+
+	@show size( mono_bm_baseline )
+	@show size( good_ear_bm )
+
+	@show size( tf_ratio )
+	@show size( rms_good_ear )
+	@show size( rms_mono )
+	@show size( tf_ratio )
+
+	if decimation[2] > 1  # % Classic case
+	# % Data from non_decimating case is not used as golden.
+		@printf "for python, tf_ratio = ["
+		# for ch = 1:size(tf_ratio')
+		for ch = 1:length(tf_ratio)
+			@printf " %.4f," tf_ratio[1,ch]
+			if mod(ch, 5) == 0
+				@printf "\n"
+			end
+		end
+		@printf "]\nfor matlab, expected_tf_ratio = ["
+		# for ch = 1:size(tf_ratio')
+		for ch = 1:length(tf_ratio)
+			@printf "%.4f, " tf_ratio[1,ch]
+			if mod(ch, 5) == 0
+				@printf "...\n"
+			end
+		end
+		@printf "];\n"
+	end
+	expected_tf_ratio = 
+	[ 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 
+	  1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 
+	  1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 
+	  1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 
+	  1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 
+	  1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 
+	  1.0000, 1.0000, 1.0001, 1.0001, 1.0001, 
+	  1.0002, 1.0004, 1.0007, 1.0018, 1.0050, 
+	  1.0133, 1.0290, 1.0463, 1.0562, 1.0552, 
+	  1.0505, 1.0497, 1.0417, 1.0426, 1.0417, 
+	  1.0320, 1.0110, 1.0093, 1.0124, 1.0065, 
+	  1.0132, 1.0379, 1.0530, 1.0503, 1.0477, 
+	  1.0556, 1.0659, 1.0739, 1.0745, 1.0762, 
+	  1.0597, 1.0200, 1.0151, 1.0138, 1.0129, 
+	  1.0182 ]';
+	if decimation[2] == 1
+		# % Later channels are dominated by aliasing effects, which are different
+		# % with the 2025 non-decimating version, so ignore the tiny responses
+		# % there.
+		tf_ratio = tf_ratio[1:52];
+		expected_tf_ratio = expected_tf_ratio[1:52];
+	end
+	@show size(expected_tf_ratio) size( tf_ratio)
+	max_error = maximum(abs.(expected_tf_ratio - tf_ratio));
+	if max_error > 1e-3
+		status = true # 1
+		@printf "Expected TF Ratio is not within 1e-3 of TF Ratio\n"
+	end
+	if any(tf_ratio .< 0.999) | any(tf_ratio .> 1.25)
+		status = true # 1;
+		@printf "bm ratio is expected to be between 1 and 1.2 for noise\n"
+	end
+	return status
+end
+
+
+#=
 
 function status = test_multiaural_carfac(do_plots)
 % Tests that in binaural carfac, providing identical noise to both ears

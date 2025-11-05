@@ -21,6 +21,7 @@ include( "CARFAC_Stage_g.jl"        )
 include( "CARFAC_OHC_NLF.jl"        )
 include( "CARFAC_Run_Segment.jl"    )
 include( "CARFAC_Close_AGC_Loop.jl" )
+include( "CARFAC_Cross_Couple.jl"   )
 
 include( "CARFAC_Test.jl"           )
 

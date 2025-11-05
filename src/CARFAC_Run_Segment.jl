@@ -164,7 +164,7 @@ function CARFAC_Run_Segment(CF, CF_state_ears, input_waves, do_BM = true )
                 if AGC_updated
                         if n_ears > 1
                                 # % do multi-aural cross-coupling:
-                                CF.ears = CARFAC_Cross_Couple(CF.ears);
+                                CF_state_ears = CARFAC_Cross_Couple(CF, CF_state_ears);
                         end
                         if ~CF.open_loop
                                 CF = CARFAC_Close_AGC_Loop(CF, CF_state_ears); # % Starts the interpolation of zB and g.
