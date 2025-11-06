@@ -53,12 +53,12 @@ function CARFAC_Run_Segment(CF, CF_state_ears, input_waves, do_BM = true )
 #   do_BM = 0;
 # end
 
-        @show size(input_waves)
+     #   @show size(input_waves)
 
         n_samp, n_ears = size(input_waves)
         
 
-        @show n_ears CF.n_ears
+    #    @show n_ears CF.n_ears
 
         if n_ears != CF.n_ears
                 error("bad number of input_waves channels passed to CARFAC_Run")
@@ -147,7 +147,7 @@ function CARFAC_Run_Segment(CF, CF_state_ears, input_waves, do_BM = true )
                         CF_state_ears[ear].AGC_state, AGC_updated = CARFAC_AGC_Step( nap, CF.ears[ear].AGC_coeffs, CF_state_ears[ear].AGC_state);
 
                         # % save some output data:
-                        naps(k, :, ear) = nap; # % output to neural activity pattern
+                        naps[k, :, ear] = nap; # % output to neural activity pattern
                         if do_BM
                                 BM[k, :, ear] = car_out;
                                 state = CF_state_ears[ear].CAR_state;
@@ -180,5 +180,6 @@ function CARFAC_Run_Segment(CF, CF_state_ears, input_waves, do_BM = true )
                         firings_all = nothing
                 end
         end
+   #     @show naps
         return (; naps, CF, CF_state_ears, BM, seg_ohc, seg_agc, firings_all )
 end

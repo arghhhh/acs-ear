@@ -38,7 +38,7 @@ function CARFAC_Test(do_plots = true)
 # end  % Produce plots by default.
 
         # % Run tests, and see if any fail (have nonzero status):
-        status = 0  # % 0 for OK so far; 1 for test fail; 2 for error.
+        status = false  # % 0 for OK so far; 1 for test fail; 2 for error.
         status = status | test_CAR_freq_response(do_plots)
         status = status | test_IHC1(do_plots) # % one_cap, v1
         status = status | test_IHC2(do_plots) # % two_cap, v2
@@ -60,7 +60,7 @@ function CARFAC_Test(do_plots = true)
         status = status | test_multiaural_silent_channel_non_decimating(do_plots)
         status = status | test_multiaural_carfac(do_plots)
         status = status | test_spike_rates(do_plots)
-        report_status(status, :CARFAC_Test, 1)
+        report_status(status, :CARFAC_Test, true)
         return status
 end
 
@@ -232,6 +232,7 @@ function run_IHC(test_freq, version, do_plots)
                         println("Here")
                         p = plot(t, class_firings)
                         push!( figures, p )
+			plot!(t, class_firings)
                 end
         
 
@@ -515,7 +516,6 @@ function test_AGC_steady_state_core(do_plots, CF)
                 p = plot( agc_response[:, end, : ]')
                 push!( figures, p )
 		plot!( title = "Steady state spatial responses of the stages" )
-
 
 	end
 
@@ -1160,31 +1160,34 @@ function test_multiaural_silent_core(do_plots, decimation)
 end
 
 
-#=
 
-function status = test_multiaural_carfac(do_plots)
-% Tests that in binaural carfac, providing identical noise to both ears
-% gives identical nap output at end.
-status = 0;
-fs = 22050;
-t = (0:(1/fs):(1 - 1/fs))';  % Sample times for 1s of noise
-amplitude = 1e-4;  % -80 dBFS, around 20 or 30 dB SPL
-noise = amplitude * randn(size(t));
-binaural_noise = [noise noise];
-CF = CARFAC_Design(2, fs, 'one_cap');  % Legacy
-CF = CARFAC_Init(CF);
-[naps, CF, bm_baseline] = CARFAC_Run_Segment(CF, CF_state_ears, binaural_noise);
-ear_one_naps = naps(:, :, 1);
-ear_two_naps = naps(:, :, 2);
-max_error =  max(abs(ear_one_naps - ear_two_naps));
-if max_error > 1e-6
-  status = 1;
-  @printf 'Failed to have both ears equal in binaural');
+
+function test_multiaural_carfac(do_plots)
+# % Tests that in binaural carfac, providing identical noise to both ears
+# % gives identical nap output at end.
+	status = false # 0;
+	fs = 22050;
+	t = (0:(1/fs):(1 - 1/fs)) # '; # % Sample times for 1s of noise
+	amplitude = 1e-4; # % -80 dBFS, around 20 or 30 dB SPL
+	noise = amplitude * randn(size(t));
+	binaural_noise = [noise noise];
+	CF = CARFAC_Design_version( :one_cap, 2, fs, ); # % Legacy
+	CF_state_ears = CARFAC_Init(CF);
+	#[naps, CF, bm_baseline] = CARFAC_Run_Segment(CF, CF_state_ears, binaural_noise);
+	( naps, CF, CF_state_ears, bm_baseline, _... ) = CARFAC_Run_Segment(CF, CF_state_ears, binaural_noise);
+	ear_one_naps = naps[:, :, 1];
+	ear_two_naps = naps[:, :, 2];
+	#max_error =  max(abs(ear_one_naps - ear_two_naps));
+	max_error =  maximum(abs.(ear_one_naps - ear_two_naps));
+	if max_error > 1e-6
+		status = true # 1;
+		@printf "Failed to have both ears equal in binaural"
+	end
+	report_status(status, "test_multiaural_carfac" );
+	return status
 end
-report_status(status, 'test_multiaural_carfac');
-return
 
-=#
+
 
 function test_OHC_health(do_plots)
 # % Test: Verify frequency dependent reduced gain with reduced health.
@@ -1334,78 +1337,116 @@ function find_zero_crossings(x, y)
         return zclist
 end
 
-#= 
-function status = test_spike_rates(do_plots)
-% Test: Assure the 3 class rates versus level look good.
+#global global_firings
+function test_spike_rates(do_plots = false)
+	# % Test: Assure the 3 class rates versus level look good.
 
-status = 0;
-fs = 22050;
-fp = 1000;  % Probe tone frequency
-duration = 0.25;
-dbstep = 10;   % 10 is good
-dbfs = -104:dbstep:6;  % 0 to 110 dB SPL
+	status = false # 0;
+	fs = 22050;
+	fp = 1000; # % Probe tone frequency
+	duration = 0.25;
+	dbstep = 10;  # % 10 is good
+	dbfs = -104:dbstep:6; # % 0 to 110 dB SPL
 
-t = (0:(1/fs):(duration - 1/fs))';  % Sample times for short duration
-sinusoid = sin(2 * pi * t * fp);
-signal = [];
-time = [];
-t_start = 0;
-for db = dbfs  % Levels spanning a huge range
-  amplitude = sqrt(2) * 10.^(db/20);
-  signal = [signal; amplitude*sinusoid];
-  time = [time; t + t_start];
-  t_start = t_start + duration;
+	t = (0:(1/fs):(duration - 1/fs)) # '; # % Sample times for short duration
+	sinusoid = sin.(2 * pi * t * fp);
+	signal = Float64[];
+	time = Float64[];
+	t_start = 0;
+	for (i,db) = enumerate(dbfs)  # % Levels spanning a huge range
+		amplitude = sqrt(2) * 10.0^(db/20);
+		# signal = [signal; amplitude*sinusoid];
+		append!( signal, amplitude*sinusoid )
+		# time = [time; t + t_start];
+		append!( time, t .+ t_start )
+		t_start = t_start + duration
+	end
+
+	signal = reshape( signal, length(signal), 1 )
+
+	CF = CARFAC_Design_version( :do_syn, 1, fs ); # % v3 3-class synapse model
+	CF_state_ears = CARFAC_Init(CF);
+	r = CARFAC_Run_Segment(CF, CF_state_ears, signal) #  % nap has 3 columns of firings
+
+	# MATLAB version returns [naps, CF, BM, seg_ohc, seg_agc, firings_all]
+
+	nap = r.naps
+	CF = r.CF
+	CF_state_ears = r.CF_state_ears
+	bm = r.BM
+	ohc = r.seg_ohc
+	agc = r.seg_agc
+	firings = r.firings_all
+
+#	global global_firings = firings
+
+	if do_plots
+	# %%
+#		@show  CF.pole_freqs fp
+
+	#	chan = find(CF.pole_freqs * 1.06 < fp, 1) # % probably best channel
+		chan = findfirst( CF.pole_freqs * 1.06 .< fp )
+	#	chan_firings = squeeze(firings[:, chan, :, 1]) #  % Just one channel, 3 class columns.
+		chan_firings = firings[:, chan, :, 1] #  % Just one channel, 3 class columns.
+		healthy_n_fibers = CF.SYN_params.healthy_n_fibers;
+
+#@show size(chan_firings) size(healthy_n_fibers)
+
+		rates = chan_firings ./ reshape( healthy_n_fibers, 1, : )
+
+		# figure();
+		p = plot()
+                push!( figures, p )
+
+		plot!(time, chan_firings);
+		plot!( title  = "Instantaneous rates of 3 fiber-group classes")
+		plot!( xlabel = "time in seconds, with 10 dB steps from -100 to 0 dB FS")
+		plot!( ylabel = "firings per sample")
+		for db = dbfs .+ 104
+		#	text(duration * (db/dbstep + 0.4), 12, num2str(db))
+		end
+
+		# figure();
+		p = plot()
+                push!( figures, p )
+		plot!(time, fs*smooth1d(rates, fs*0.005)) # % Per fiber
+		plot!( title  = "Mean rates of 3 fiber classes")
+		plot!( xlabel = "time in seconds, with 10 dB steps from 0 to 110 dB SPL rms")
+		plot!( ylabel = "firings per second per fiber")
+		for db = dbfs .+ 104
+		#	text(duration * (db/dbstep + 0.4), 100, num2str(db))
+		end
+	#	octave_basal_chan = find(CF.pole_freqs * 1.06 < fp*2, 1);
+		octave_basal_chan = findfirst(CF.pole_freqs * 1.06 .< fp*2);
+	#	half_octave_basal_chan = find(CF.pole_freqs * 1.06 < fp*sqrt(2), 1);
+		half_octave_basal_chan = findfirst(CF.pole_freqs * 1.06 .< fp*sqrt(2));
+	#	best_chan = find(CF.pole_freqs * 1.06 < fp, 1);
+		best_chan = findfirst(CF.pole_freqs * 1.06 .< fp);
+	#	half_octave_apical_chan = find(CF.pole_freqs * 1.06 < fp/sqrt(2), 1);
+		half_octave_apical_chan = findfirst(CF.pole_freqs * 1.06 .< fp/sqrt(2));
+
+		@show octave_basal_chan half_octave_basal_chan best_chan half_octave_apical_chan
+
+		channels = [octave_basal_chan, half_octave_basal_chan, best_chan, half_octave_apical_chan];
+	#	figure()
+		p = plot()
+                push!( figures, p )
+
+		plot!(time[1:8:end], agc[1:8:end, channels])
+		# text(2.55, 0.15, [num2str(channels(4)), ": apical 0.5"])
+		# text(2.55, 0.5, [num2str(channels(3)), ": best"])
+		# text(2.58, 0.74, [num2str(channels(2)), ": basal 0.5"])
+		# text(2.45, 0.93, [num2str(channels(1)), ": basal 1"])
+		for db = dbfs .+ 104
+			# text(duration * (db/dbstep + 0.4), 0.4, num2str(db))
+		end
+	end
+
+	report_status(status, "test_spike_rates")
+	return status
 end
 
-CF = CARFAC_Design(1, fs, 'do_syn');  % v3 3-class synapse model
-CF = CARFAC_Init(CF);
-[nap, CF, bm, ohc, agc, firings] = CARFAC_Run_Segment(CF, CF_state_ears, signal);  % nap has 3 columns of firings
 
-if do_plots
-  %%
-  chan = find(CF.pole_freqs * 1.06 < fp, 1); % probably best channel
-  chan_firings = squeeze(firings(:, chan, :, 1));  % Just one channel, 3 class columns.
-  healthy_n_fibers = CF.SYN_params.healthy_n_fibers;
-  rates = chan_firings ./ healthy_n_fibers;
-
-  figure();
-  plot(time, chan_firings);
-  title('Instantaneous rates of 3 fiber-group classes')
-  xlabel('time in seconds, with 10 dB steps from -100 to 0 dB FS')
-  ylabel('firings per sample')
-  for db = dbfs + 104
-    text(duration * (db/dbstep + 0.4), 12, num2str(db))
-  end
-
-  figure();
-  plot(time, fs*smooth1d(rates, fs*0.005)) % Per fiber
-  title('Mean rates of 3 fiber classes')
-  xlabel('time in seconds, with 10 dB steps from 0 to 110 dB SPL rms')
-  ylabel('firings per second per fiber')
-  for db = dbfs + 104
-    text(duration * (db/dbstep + 0.4), 100, num2str(db))
-  end
-  octave_basal_chan = find(CF.pole_freqs * 1.06 < fp*2, 1);
-  half_octave_basal_chan = find(CF.pole_freqs * 1.06 < fp*sqrt(2), 1);
-  best_chan = find(CF.pole_freqs * 1.06 < fp, 1);
-  half_octave_apical_chan = find(CF.pole_freqs * 1.06 < fp/sqrt(2), 1);
-  channels = [octave_basal_chan, half_octave_basal_chan, best_chan, ...
-    half_octave_apical_chan];
-  figure()
-  plot(time(1:8:end), agc(1:8:end, channels))
-  text(2.55, 0.15, [num2str(channels(4)), ': apical 0.5'])
-  text(2.55, 0.5, [num2str(channels(3)), ': best'])
-  text(2.58, 0.74, [num2str(channels(2)), ': basal 0.5'])
-  text(2.45, 0.93, [num2str(channels(1)), ': basal 1'])
-  for db = dbfs + 104
-    text(duration * (db/dbstep + 0.4), 0.4, num2str(db))
-  end
-end
-
-report_status(status, 'test_spike_rates')
-return
-
-=#
 
 function report_status(status, name, extra = false)
 # if nargin < 3, extra = 0; end
