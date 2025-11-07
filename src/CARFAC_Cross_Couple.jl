@@ -18,7 +18,7 @@
 # % limitations under the License.
 
 # function CARFAC_Cross_Couple(ears);
-function CARFAC_Cross_Couple(CF, CF_state_ears);
+function CARFAC_Cross_Couple( CF::CARFAC, CF_state_ears::Vector{Ear_state} );
 
         println("---:")
 dump( CF, maxdepth=1 )

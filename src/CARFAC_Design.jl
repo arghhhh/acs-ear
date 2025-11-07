@@ -17,29 +17,114 @@
 # % See the License for the specific language governing permissions and
 # % limitations under the License.
 
+mutable struct CAR_coeffs_struct
+        n_ch            ::Int64
+        velocity_scale  ::Float64
+        v_offset        ::Float64
+        ac_coeff        ::Float64
+
+        r1_coeffs       ::Vector{Float64}
+        a0_coeffs       ::Vector{Float64}
+        c0_coeffs       ::Vector{Float64}
+        h_coeffs        ::Vector{Float64}
+        g0_coeffs       ::Vector{Float64}
+        ga_coeffs       ::Vector{Float64}
+        gb_coeffs       ::Vector{Float64}
+        gc_coeffs       ::Vector{Float64}
+        OHC_health      ::Vector{Float64}
+
+        zr_coeffs       ::Vector{Float64}
+
+	linear           ::Bool # ???? not sure if this should be here
+	use_delay_buffer ::Bool # ???? not sure if this should be here
+
+
+        CAR_coeffs_struct() = begin
+		r = new()
+		r.use_delay_buffer = false
+
+		return r
+	end
+end
+
+mutable struct AGC_coeffs_struct
+        n_AGC_stages        :: Int64
+        n_ch                :: Int64
+        decimation          :: Vector{Int64}
+        AGC_stage_gain      :: Float64
+        mix_coeffs          :: Vector{Float64}
+        feedback_gains      :: Vector{Float64}
+        input_gains         :: Vector{Float64}
+        next_stage_gains    :: Vector{Float64}
+        spatial_FIR         :: Matrix{Float64}
+        simpler_decimating  :: Bool
+
+        AGC_coeffs_struct() = new()
+end
+
+mutable struct IHC_coeffs_struct
+        n_ch                :: Int64
+        just_hwr            :: Bool
+        lpf_coeff           :: Float64
+
+	out_rate            :: Float64
+	in_rate             :: Float64
+	rest_cap            :: Float64
+
+        out1_rate           :: Float64
+        in1_rate            :: Float64
+        out2_rate           :: Float64
+        in2_rate            :: Float64
+        one_cap             :: Bool
+        output_gain         :: Float64
+        rest_output         :: Float64
+        rest_cap2           :: Float64
+        rest_cap1           :: Float64
+
+        IHC_coeffs_struct() = new()
+end
+
+mutable struct SYN_coeffs
+	n_ch                :: Int64         
+	n_classes           :: Int64               
+	n_fibers            :: Matrix{Float64}              
+	v_widths            :: Vector{Float64}              
+	v_halfs             :: Vector{Float64}        # % Same units as v_recep and v_widths.
+	a1                  :: Float64                # % Feedback gain
+	a2                  :: Float64                # % Output gain
+	agc_weights         :: Vector{Float64}        # % For making a nap out to agc in.
+	spont_p             :: Vector{Float64}        # % used only to init the output LPF
+	spont_sub           :: Float64                  
+	res_lpf_inits       :: Vector{Float64}                   
+	res_coeff           ::Float64               
+	lpf_coeff           ::Float64               
+	SYN_coeffs() = new()
+end
+
 mutable struct Ear
-	CAR_coeffs
-	AGC_coeffs
-	IHC_coeffs
-	SYN_coeffs
+	CAR_coeffs    :: CAR_coeffs_struct
+	AGC_coeffs    :: AGC_coeffs_struct
+	IHC_coeffs    :: IHC_coeffs_struct
+	SYN_coeffs    :: Union{SYN_coeffs,Nothing}
 	Ear() = new()
 end
 
 mutable struct CARFAC
-        fs
-        max_channels_per_octave
-        CAR_params
-        AGC_params
-        IHC_params
-        SYN_params
-        n_ch
-        pole_freqs
-        ears::Vector{Ear}
-        n_ears
-        open_loop
-        linear_car
-        do_syn
-        use_delay_buffer
+        fs                      ::Float64
+        max_channels_per_octave ::Float64
+        CAR_params              ::CAR_params
+        AGC_params              ::AGC_params
+        IHC_params              ::IHC_params
+        SYN_params              ::SYN_params_default
+
+        n_ch                    ::Int64
+        pole_freqs              ::Vector{Float64}
+        ears                    ::Vector{Ear}
+        n_ears                  ::Int64
+        open_loop               ::Bool
+        linear_car              ::Bool
+        do_syn                  ::Bool
+        use_delay_buffer        ::Bool
 
         CARFAC() = new()
 end
@@ -213,38 +298,10 @@ end
 end
 
 
-mutable struct CAR_coeffs_struct
-        n_ch
-        velocity_scale
-        v_offset
-        ac_coeff
 
-        r1_coeffs 
-        a0_coeffs 
-        c0_coeffs 
-        h_coeffs
-        g0_coeffs 
-        ga_coeffs 
-        gb_coeffs 
-        gc_coeffs 
-        OHC_health
-
-        zr_coeffs
-
-	linear           # ???? not sure if this should be here
-	use_delay_buffer # ???? not sure if this should be here
-
-
-        CAR_coeffs_struct() = begin
-		r = new()
-		r.use_delay_buffer = false
-
-		return r
-	end
-end
 
 # %% Design the filter coeffs:
-function CARFAC_DesignFilters(CAR_params, fs, pole_freqs)
+function CARFAC_DesignFilters(CAR_params, fs, pole_freqs)::CAR_coeffs_struct
 
  #       @show pole_freqs
  #       dump(pole_freqs)
@@ -343,20 +400,7 @@ function CARFAC_DesignFilters(CAR_params, fs, pole_freqs)
 end
 
 
-mutable struct AGC_coeffs_struct
-        n_AGC_stages
-        n_ch
-        decimation
-        AGC_stage_gain
-        mix_coeffs
-        feedback_gains
-        input_gains
-        next_stage_gains
-        spatial_FIR
-        simpler_decimating
 
-        AGC_coeffs_struct() = new()
-end
 
 # %% Design the AGC coeffs:
 function CARFAC_DesignAGC(AGC_params, fs, n_ch)
@@ -441,27 +485,7 @@ function Design_FIR_coeffs(delay_variance, mean_delay)
 end
 
 
-mutable struct IHC_coeffs_struct
-        n_ch
-        just_hwr
-        lpf_coeff
 
-	out_rate
-	in_rate
-	rest_cap
-
-        out1_rate
-        in1_rate
-        out2_rate
-        in2_rate
-        one_cap
-        output_gain
-        rest_output
-        rest_cap2
-        rest_cap1
-
-        IHC_coeffs_struct() = new()
-end
 
 mutable struct IHC_state_struct
         cap1_voltage
@@ -567,22 +591,7 @@ function CARFAC_DesignIHC(IHC_params, fs, n_ch)
         return IHC_coeffs
 end
 
-mutable struct SYN_coeffs
-	n_ch
-	n_classes
-	n_fibers
-	v_widths
-	v_halfs      # % Same units as v_recep and v_widths.
-	a1           # % Feedback gain
-	a2           # % Output gain
-	agc_weights  # % For making a nap out to agc in.
-	spont_p      # % used only to init the output LPF
-	spont_sub   
-	res_lpf_inits
-	res_coeff
-	lpf_coeff
-	SYN_coeffs() = new()
-end
+
 
 
 # %% Design the SYN coeffs:
@@ -657,9 +666,9 @@ function CARFAC_DesignSynapses(SYN_params, fs, pole_freqs)
 	ret.lpf_coeff      = 1 - exp(-1/(SYN_params.tau_lpf * fs))
 
 
-#@show ret
-#dump( ret )
-#error("stop")
+# @show ret
+# dump( ret )
+# error("stop")
 
 	return ret
 end 

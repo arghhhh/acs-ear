@@ -17,7 +17,7 @@
 # % See the License for the specific language governing permissions and
 # % limitations under the License.
 
-function CARFAC_Close_AGC_Loop(CF, CF_state_ears)
+function CARFAC_Close_AGC_Loop(CF::CARFAC, CF_state_ears::Vector{Ear_state})
         # % function CF = CARFAC_Close_AGC_Loop(CF)
 
         # % fastest decimated rate determines interp needed:

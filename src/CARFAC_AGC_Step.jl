@@ -17,7 +17,7 @@
 # % See the License for the specific language governing permissions and
 # % limitations under the License.
 
-function CARFAC_AGC_Step(detects, coeffs, state)
+function CARFAC_AGC_Step(detects::Vector{Float64}, coeffs::AGC_coeffs_struct, state::AGC_state)
         # % function [state, updated] = CARFAC_AGC_Step(detects, coeffs, state)
         # %
         # % one time step of the AGC state update; maybe decimates internally.
@@ -104,7 +104,7 @@ function CARFAC_AGC_Step(detects, coeffs, state)
         return state, updated
 end
 
-function CARFAC_AGC_Recurse(coeffs, AGC_in, stage, state)
+function CARFAC_AGC_Recurse(coeffs::AGC_coeffs_struct, AGC_in::Vector{Float64}, stage::Int64, state::AGC_state)
         # % function [state, updated] = CARFAC_AGC_Recurse(coeffs, AGC_in, ...
         # %   stage, state)
 

@@ -17,7 +17,7 @@
 # % See the License for the specific language governing permissions and
 # % limitations under the License.
 
-function  CARFAC_IHC_Step(bm_out, coeffs, state);
+function  CARFAC_IHC_Step(bm_out, coeffs::IHC_coeffs_struct, state::IHC_state);
 # % function [ihc_out, state] = CARFAC_IHC_Step(bm_out, coeffs, state);
 # %
 # % One sample-time update of inner-hair-cell (IHC) model, including the

@@ -1,18 +1,18 @@
 
 mutable struct CAR_params
-        velocity_scale   #  % for the velocity nonlinearity
-        v_offset         # % offset gives a quadratic part
-        min_zeta         # % minimum damping factor in mid-freq channels
-        max_zeta         # % maximum damping factor in mid-freq channels
-        first_pole_theta 
-        zero_ratio       # % how far zero is above pole
-        high_f_damping_compression # % 0 to 1 to compress zeta
-        ERB_per_step     # % assume G&M's ERB formula
-        min_pole_Hz      #
-        ERB_break_freq   #  % 165.3 is Greenwood map's break freq.
-        ERB_Q            # % Glasberg and Moore's high-cf ratio
-        ac_corner_Hz     # % AC couple at 20 Hz corner
-        use_delay_buffer # % Default to true starting in v3.
+        velocity_scale   ::Float64   #  % for the velocity nonlinearity
+        v_offset         ::Float64   # % offset gives a quadratic part
+        min_zeta         ::Float64   # % minimum damping factor in mid-freq channels
+        max_zeta         ::Float64   # % maximum damping factor in mid-freq channels
+        first_pole_theta ::Float64 
+        zero_ratio       ::Float64   # % how far zero is above pole
+        high_f_damping_compression ::Float64 # % 0 to 1 to compress zeta
+        ERB_per_step     ::Float64   # % assume G&M's ERB formula
+        min_pole_Hz      ::Float64   #
+        ERB_break_freq   ::Float64   # % 165.3 is Greenwood map's break freq.
+        ERB_Q            ::Float64   # % Glasberg and Moore's high-cf ratio
+        ac_corner_Hz     ::Float64   # % AC couple at 20 Hz corner
+        use_delay_buffer ::Bool      # % Default to true starting in v3.
   
         function CAR_params()
                 r = new()

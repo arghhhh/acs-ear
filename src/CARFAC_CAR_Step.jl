@@ -19,7 +19,7 @@
 # % See the License for the specific language governing permissions and
 # % limitations under the License.
 
-function CARFAC_CAR_Step(x_in, CAR_coeffs, state)
+function CARFAC_CAR_Step(x_in::Float64, CAR_coeffs::CAR_coeffs_struct, state::CAR_state )
 # % function [zY, state] = CARFAC_CAR_Step(x_in, CAR_coeffs, state)
         # %
         # % One sample-time update step for the filter part of the CARFAC.

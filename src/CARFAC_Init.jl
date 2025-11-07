@@ -17,16 +17,56 @@
 # % See the License for the specific language governing permissions and
 # % limitations under the License.
 
+mutable struct CAR_state
+        z1_memory
+        z2_memory
+        zA_memory
+        zB_memory
+        dzB_memory
+        zY_memory
+        g_memory
+        dg_memory
+        ac_coupler
+        CAR_state() = new()
+end    
+
+mutable struct IHC_state
+        # should probably different state structs for each of just_hwr, one_cap, else cases
+        ihc_accum
+
+        cap_voltage
+        lpf1_state
+        lpf2_state
+
+        cap1_voltage
+        cap2_voltage
+
+        IHC_state() = new()
+end
+
+mutable struct AGC_state
+        AGC_memory
+        decim_phase
+        input_accum
+        AGC_state() = new()
+end
+
+mutable struct SYN_state
+        reservoirs
+        lpf_state
+        SYN_state() = new()
+end
+
 mutable struct Ear_state
-        CAR_state
-        IHC_state
-        AGC_state
-        SYN_state
+        CAR_state::CAR_state
+        IHC_state::IHC_state
+        AGC_state::AGC_state
+        SYN_state::SYN_state
 
         Ear_state() = new()
 end
 
-function CARFAC_Init(CF)
+function CARFAC_Init(CF)::Vector{Ear_state}
 # % function CF = CARFAC_Init(CF)
 # %
 # % Initialize state for one or more ears of CF.
@@ -48,20 +88,9 @@ function CARFAC_Init(CF)
         return states
 end
 
-mutable struct CAR_state
-        z1_memory
-        z2_memory
-        zA_memory
-        zB_memory
-        dzB_memory
-        zY_memory
-        g_memory
-        dg_memory
-        ac_coupler
-        CAR_state() = new()
-end        
+    
 
-function CAR_Init_State(coeffs)
+function CAR_Init_State(coeffs)::CAR_state
         n_ch = coeffs.n_ch
         state = CAR_state()
         state.z1_memory            = zeros(n_ch)
@@ -76,14 +105,9 @@ function CAR_Init_State(coeffs)
         return state
 end
 
-mutable struct AGC_state
-        AGC_memory
-        decim_phase
-        input_accum
-        AGC_state() = new()
-end
 
-function AGC_Init_State(coeffs)
+
+function AGC_Init_State(coeffs)::AGC_state
         # % 2025 new way, one struct instead of array of them.
         state = AGC_state()
 
@@ -98,21 +122,9 @@ function AGC_Init_State(coeffs)
         return state
 end
 
-mutable struct IHC_state
-        # should probably different state structs for each of just_hwr, one_cap, else cases
-        ihc_accum
 
-        cap_voltage
-        lpf1_state
-        lpf2_state
 
-        cap1_voltage
-        cap2_voltage
-
-        IHC_state() = new()
-end
-
-function IHC_Init_State(coeffs)
+function IHC_Init_State(coeffs)::IHC_state
         n_ch = coeffs.n_ch;
 
         state = IHC_state()
@@ -133,13 +145,9 @@ function IHC_Init_State(coeffs)
         return state
 end
 
-mutable struct SYN_state
-        reservoirs
-        lpf_state
-        SYN_state() = new()
-end 
+ 
 
-function SYN_Init_State(coeffs)
+function SYN_Init_State(coeffs)::SYN_state
         n_ch = coeffs.n_ch;
         n_cl = coeffs.n_classes;
         state = SYN_state()

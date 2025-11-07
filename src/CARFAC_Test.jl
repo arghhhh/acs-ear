@@ -78,11 +78,11 @@ function test_CAR_freq_response(do_plots)
         ear = CF.ears[1]
         ear_state = CF_state[1]
         ear.CAR_coeffs.linear = true
-        impulse = 1
+        impulse = 1.0
         for i = 1:n_points
                 car_out, state = CARFAC_CAR_Step( impulse, ear.CAR_coeffs, ear_state.CAR_state)
                 ear_state.CAR_state = state
-                impulse = 0
+                impulse = 0.0
                 impulse_responses[i, :] = car_out'
         end
         complex_spectra = fft(impulse_responses,1)  # do FFT column wise - MATLAB style

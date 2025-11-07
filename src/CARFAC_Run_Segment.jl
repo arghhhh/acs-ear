@@ -17,7 +17,7 @@
 # % See the License for the specific language governing permissions and
 # % limitations under the License.
 
-function CARFAC_Run_Segment(CF, CF_state_ears, input_waves, do_BM = true )
+function CARFAC_Run_Segment(CF::CARFAC, CF_state_ears::Vector{Ear_state}, input_waves, do_BM = true )
 # % function [naps, CF, BM, seg_ohc, seg_agc, firings_all] = ...
 # %   CARFAC_Run_Segment(CF, input_waves)
 # %

@@ -1,12 +1,12 @@
 
 mutable struct AGC_params
-        n_stages
-        time_constants  # % 2, 8, 32, 128 ms
-        AGC_stage_gain  # % gain from each stage to next slower stage
-        decimation      # % how often to update the AGC states
-        AGC1_scales     # % in units of channels
-        AGC2_scales     # % spread more toward base
-        AGC_mix_coeff 
+        n_stages        ::Int64 
+        time_constants  ::Vector{Float64} # % 2, 8, 32, 128 ms
+        AGC_stage_gain  ::Float64         # % gain from each stage to next slower stage
+        decimation      ::Vector{Int64}   # % how often to update the AGC states
+        AGC1_scales     ::Vector{Float64} # % in units of channels
+        AGC2_scales     ::Vector{Float64} # % spread more toward base
+        AGC_mix_coeff   ::Float64
 
         function AGC_params()
                 r = new()
