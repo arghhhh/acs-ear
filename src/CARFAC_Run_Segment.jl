@@ -167,6 +167,7 @@ function CARFAC_Run_Segment(CF::CARFAC, CF_state_ears::Vector{Ear_state}, input_
                                 CF_state_ears = CARFAC_Cross_Couple(CF, CF_state_ears);
                         end
                         if ~CF.open_loop
+                             #   error("here")
                                 CF = CARFAC_Close_AGC_Loop(CF, CF_state_ears); # % Starts the interpolation of zB and g.
                         end
                 end

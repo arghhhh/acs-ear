@@ -138,7 +138,7 @@ CARFAC_Design_version( CF_version_keyword = :two_cap, n_ears = 1, fs::Number = 4
 		, CF_AGC_params = AGC_params_default()
 		, CF_IHC_params = IHC_params_default(CF_version_keyword)
 		, CF_SYN_params = SYN_params_default(CF_IHC_params.do_syn)
-	) = CARFAC_Design( n_ears, fs, CF_CAR_params, CF_AGC_params, CF_IHC_params, CF_SYN_params; CF_version_keyword=CF_version_keyword )
+	)::CARFAC = CARFAC_Design( n_ears, fs, CF_CAR_params, CF_AGC_params, CF_IHC_params, CF_SYN_params; CF_version_keyword=CF_version_keyword )
 
 
 
@@ -148,7 +148,7 @@ CARFAC_Design_version( CF_version_keyword = :two_cap, n_ears = 1, fs::Number = 4
 
 function CARFAC_Design(n_ears = 1, fs = 48000.0, 
   CF_CAR_params = CAR_params_default(), CF_AGC_params = AGC_params_default(), CF_IHC_params = IHC_params_default(CF_version_keyword), CF_SYN_params = SYN_params_default(CF_IHC_params.do_syn) ; 
-  CF_version_keyword = :two_cap )
+  CF_version_keyword = :two_cap )::CARFAC
 
 
 

@@ -18,42 +18,42 @@
 # % limitations under the License.
 
 mutable struct CAR_state
-        z1_memory
-        z2_memory
-        zA_memory
-        zB_memory
-        dzB_memory
-        zY_memory
-        g_memory
-        dg_memory
-        ac_coupler
+        z1_memory::Vector{Float64}  # length n_ch
+        z2_memory::Vector{Float64}  # length n_ch
+        zA_memory::Vector{Float64}  # length n_ch
+        zB_memory::Vector{Float64}  # length ??
+        dzB_memory::Vector{Float64} # length n_ch
+        zY_memory::Vector{Float64}  # length n_ch
+        g_memory::Vector{Float64}   # length ??
+        dg_memory::Vector{Float64}  # length n_ch
+        ac_coupler::Vector{Float64} # length n_ch
         CAR_state() = new()
 end    
 
 mutable struct IHC_state
         # should probably different state structs for each of just_hwr, one_cap, else cases
-        ihc_accum
+        ihc_accum::Vector{Float64}  # length n_ch
 
-        cap_voltage
-        lpf1_state
-        lpf2_state
+        cap_voltage::Vector{Float64}  # length n_ch
+        lpf1_state::Vector{Float64}  # length n_ch
+        lpf2_state::Vector{Float64}  # length n_ch
 
-        cap1_voltage
-        cap2_voltage
+        cap1_voltage::Vector{Float64}  # length n_ch
+        cap2_voltage::Vector{Float64}  # length n_ch
 
         IHC_state() = new()
 end
 
 mutable struct AGC_state
-        AGC_memory
-        decim_phase
-        input_accum
+        AGC_memory::Matrix{Float64}   # n_ch   x     n_AGC_stages
+        decim_phase::Matrix{Float64}  #   1    x     n_AGC_stages    (row vector)
+        input_accum::Matrix{Float64}  # n_ch   x     n_AGC_stages
         AGC_state() = new()
 end
 
 mutable struct SYN_state
-        reservoirs
-        lpf_state
+        reservoirs::Matrix{Float64}  # n_ch   x     ??
+        lpf_state::Matrix{Float64}  # n_ch   x     ??
         SYN_state() = new()
 end
 
@@ -66,7 +66,7 @@ mutable struct Ear_state
         Ear_state() = new()
 end
 
-function CARFAC_Init(CF)::Vector{Ear_state}
+function CARFAC_Init(CF::CARFAC)::Vector{Ear_state}
 # % function CF = CARFAC_Init(CF)
 # %
 # % Initialize state for one or more ears of CF.
@@ -90,7 +90,7 @@ end
 
     
 
-function CAR_Init_State(coeffs)::CAR_state
+function CAR_Init_State(coeffs::CAR_coeffs_struct)::CAR_state
         n_ch = coeffs.n_ch
         state = CAR_state()
         state.z1_memory            = zeros(n_ch)
@@ -107,7 +107,7 @@ end
 
 
 
-function AGC_Init_State(coeffs)::AGC_state
+function AGC_Init_State(coeffs::AGC_coeffs_struct)::AGC_state
         # % 2025 new way, one struct instead of array of them.
         state = AGC_state()
 
@@ -115,7 +115,7 @@ function AGC_Init_State(coeffs)::AGC_state
         state.decim_phase = zeros(1, coeffs.n_AGC_stages) #  % small ints
 
         if coeffs.simpler_decimating  # % One decimation factor vs per stage.
-                state.input_accum = zeros(coeffs.n_ch);
+                state.input_accum = zeros(coeffs.n_ch, 1);
         else
                 state.input_accum = zeros(coeffs.n_ch, coeffs.n_AGC_stages);
         end
@@ -124,7 +124,7 @@ end
 
 
 
-function IHC_Init_State(coeffs)::IHC_state
+function IHC_Init_State(coeffs::IHC_coeffs_struct)::IHC_state
         n_ch = coeffs.n_ch;
 
         state = IHC_state()
@@ -147,7 +147,7 @@ end
 
  
 
-function SYN_Init_State(coeffs)::SYN_state
+function SYN_Init_State(coeffs::SYN_coeffs)::SYN_state
         n_ch = coeffs.n_ch;
         n_cl = coeffs.n_classes;
         state = SYN_state()
