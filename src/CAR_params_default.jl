@@ -1,7 +1,7 @@
 
 mutable struct CAR_params
-        velocity_scale   ::Float64   #  % for the velocity nonlinearity
-        v_offset         ::Float64   # % offset gives a quadratic part
+        velocity_scale   ::Float64   # % for the velocity nonlinearity  DMH: used in CARFAC_OHC_NLF
+        v_offset         ::Float64   # % offset gives a quadratic part  DMH: used in CARFAC_OHC_NLF
         min_zeta         ::Float64   # % minimum damping factor in mid-freq channels
         max_zeta         ::Float64   # % maximum damping factor in mid-freq channels
         first_pole_theta ::Float64 

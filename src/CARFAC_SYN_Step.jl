@@ -1,5 +1,5 @@
 # % // clang-format off
-function CARFAC_SYN_Step(v_recep, coeffs, state)
+function CARFAC_SYN_Step(v_recep::Vector{Float64}, coeffs::SYN_coeffs, state::SYN_state)
 
 #@show v_recep coeffs state
 

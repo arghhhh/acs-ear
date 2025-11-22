@@ -23,7 +23,8 @@ function CARFAC_Close_AGC_Loop(CF::CARFAC, CF_state_ears::Vector{Ear_state})
         # % fastest decimated rate determines interp needed:
         decim1 = CF.AGC_params.decimation[1];
 
-        for ear = 1:CF.n_ears
+     #   for ear = 1:CF.n_ears
+        for ear = 1:length( CF.ears )
                 # % Set the deltas to be applied to g and zB on next CAR_Step.
                 # % If decim1 = 1 (non-decimating), the delta goes all the way;
                 # % if decim1 > 1, it ramps 1/decim1 of the way on each step.

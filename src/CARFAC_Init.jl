@@ -72,7 +72,8 @@ function CARFAC_Init(CF::CARFAC)::Vector{Ear_state}
 # % Initialize state for one or more ears of CF.
 # % This allocates and zeros all the state vector storage in the CF struct.
 
-        n_ears = CF.n_ears;
+      #  n_ears = CF.n_ears;
+        n_ears = length(CF.ears);
 
         states = [ Ear_state() for _ in 1:n_ears ]
 

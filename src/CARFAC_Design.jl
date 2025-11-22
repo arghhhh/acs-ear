@@ -119,8 +119,8 @@ mutable struct CARFAC
 
         n_ch                    ::Int64
         pole_freqs              ::Vector{Float64}
-        ears                    ::Vector{Ear}
-        n_ears                  ::Int64
+        ears                    ::Vector{Ear}  # n_ears is coded as the length(ears)
+   #     n_ears                  ::Int64    # n_ears is coded as the length(ears)
         open_loop               ::Bool
         linear_car              ::Bool
         do_syn                  ::Bool
@@ -179,6 +179,8 @@ function CARFAC_Design(n_ears = 1, fs = 48000.0,
 # % transfns = CARFAC_Transfer_Functions(CF, to_channels, from_channels)
 # %
 # % Scale is like Glasberg & Moore's ERB curve, but Greenwood's breakf.
+# DMH: https://en.wikipedia.org/wiki/Greenwood_function
+# DMH: https://en.wikipedia.org/wiki/Equivalent_rectangular_bandwidth
 # % ERB_break_freq = 165.3;  % Not 1000/4.37, 228.8 Hz breakf of Moore.
 # % ERB_Q = 1000/(24.7*4.37);    % 9.2645
 # % Edit CF.CF_CAR_params and call CARFAC_Design again to change.
@@ -288,7 +290,7 @@ end
         CF.n_ch                    = n_ch
         CF.pole_freqs              = pole_freqs
         CF.ears                    = ears
-        CF.n_ears                  = n_ears
+    #    CF.n_ears                  = n_ears
         CF.open_loop               = false
         CF.linear_car              = false
         CF.do_syn                  = CF_SYN_params.do_syn;
@@ -479,7 +481,7 @@ function Design_FIR_coeffs(delay_variance, mean_delay)
         a = (delay_variance + mean_delay*mean_delay - mean_delay) / 2
         b = (delay_variance + mean_delay*mean_delay + mean_delay) / 2
         FIR = [a, 1 - a - b, b]
-        OK = all(FIR >= [0.0, 0.25, 0.0])
+        OK = all(FIR .>= [0.0, 0.25, 0.0])
 
         return FIR,OK
 end

@@ -60,7 +60,8 @@ function CARFAC_Run_Segment(CF::CARFAC, CF_state_ears::Vector{Ear_state}, input_
 
     #    @show n_ears CF.n_ears
 
-        if n_ears != CF.n_ears
+     #   if n_ears != CF.n_ears
+        if n_ears != length( CF.ears )
                 error("bad number of input_waves channels passed to CARFAC_Run")
         end
 
@@ -101,20 +102,25 @@ function CARFAC_Run_Segment(CF::CARFAC, CF_state_ears::Vector{Ear_state}, input_
         # % before and after adapting to a signal.
         if CF.open_loop
                 # % The interpolators may be running if it was previously run closed loop.
-                for ear = 1:CF.n_ears
+              #  for ear = 1:CF.n_ears
+                for ear = 1:n_ears
                         CF_state_ears[ear].CAR_state.dzB_memory .= 0; # % To stop intepolating zB.
                         CF_state_ears[ear].CAR_state.dg_memory .= 0; # % To stop intepolating g.
                 end
         end
 
         # % Apply control coeffs to where they are needed.
-        for ear = 1:CF.n_ears
+      #  for ear = 1:CF.n_ears
+        for ear = 1:n_ears
                 # TODO: this looks icky - changing the coeffs
                 CF.ears[ear].CAR_coeffs.linear = CF.linear_car; # % Skip OHC nonlinearity.
                 CF.ears[ear].CAR_coeffs.use_delay_buffer = CF.use_delay_buffer;
         end
 
         detects = zeros(n_ch, n_ears);
+
+
+        # DMH: this is the main loop over input samples
         for k = 1:n_samp
                 # % at each time step, possibly handle multiple channels
                 AGC_updated = false  # DMH declare this here, so can access it after loop  TODO: icky?
