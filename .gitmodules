@@ -3,3 +3,6 @@
 	url = git@github.com:arghhhh/carfac.git
 [submodule "carfac"]
 	branch = arghhhh-wip
+[submodule "git-submodules/julia-signals-systems"]
+	path = git-submodules/julia-signals-systems
+	url = git@github.com:arghhhh/julia-signals-systems.git
