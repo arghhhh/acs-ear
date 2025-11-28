@@ -502,7 +502,7 @@ mutable struct IHC_state_struct
 end
 
 # %% Design the IHC coeffs:
-function CARFAC_DesignIHC(IHC_params, fs, n_ch)
+function CARFAC_DesignIHC(IHC_params::IHC_params, fs, n_ch)::IHC_coeffs_struct
 
         if IHC_params.just_hwr
                 IHC_coeffs = IHC_coeffs_struct()

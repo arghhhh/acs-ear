@@ -1,8 +1,9 @@
 
 
-# for now at least
-# ideally everything will move into a module
+module CARFACjl
 
+
+# pretty much everything, except the tests:
 include( "ERB_Hz.jl"                )
 include( "CARFAC_Design_Stage_g.jl" )
 include( "CARFAC_Detect.jl"         )
@@ -13,7 +14,7 @@ include( "SYN_params_default.jl"    )
 include( "CARFAC_Design.jl"         )
 include( "CARFAC_Init.jl"           )
 include( "CARFAC_CAR_Step.jl"       )
-# include( "CARFAC_Detect.jl"         ) # duplicated - why?
+# include( "CARFAC_Detect.jl"         )
 include( "CARFAC_IHC_Step.jl"       )
 include( "CARFAC_SYN_Step.jl"       )
 include( "CARFAC_AGC_Step.jl"       )
@@ -24,5 +25,7 @@ include( "CARFAC_Close_AGC_Loop.jl" )
 include( "CARFAC_Cross_Couple.jl"   )
 include( "smooth1d.jl"              )
 
-include( "CARFAC_Test.jl"           )
 
+include( "CARFAC_Runner.jl" )
+
+end # module CARFACjl
