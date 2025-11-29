@@ -23,7 +23,7 @@ open("README.md", "w") do file
         
         for f in 1:35
                 heading( "Figure $(f)" )
-                figure( "matlab/matlab-figure-$(f).png" )
+                figure( "matlab/matlab_figure_$(f).png" )
                 figure( "julia/julia-figure-$(f).svg"   )
         end
     end
