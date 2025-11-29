@@ -22,12 +22,13 @@ end
 function setanchor(n)
         println("<a name=\"$(n)\"></a>")
 end
-function refanchor(n, txt)
-        println("[$txt](#$(n)))")
+function refanchor(n, txt=n )
+        println("[$txt](#$(n))")
 end
 
 open("README.md", "w") do file
     redirect_stdout(file) do
+        setanchor("top")
         title( "CARFAC Tests" )
         paragraph( "These are test results derived from the google/carfac distribution when CARFAC_Test.m is run" )
         paragraph( "These also include corresponding results from the julia port - they should be identical, apart from cosmetic diffrences" )
@@ -41,6 +42,7 @@ open("README.md", "w") do file
         sectionline()
         for f in 1:35
                 setanchor( "Sect$(f)" )
+                refanchor( "top", "^" )
                 heading( "Figure $(f)" )
                 figure( "matlab/matlab_figure_$(f).png" )
                 figure( "julia/julia-figure-$(f).svg"   )
