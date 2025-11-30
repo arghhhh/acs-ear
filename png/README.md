@@ -494,6 +494,54 @@ Instantaneous rates of 3 fiber-group classes
 ## Figure 34 - Spike Rates - Means
 Mean rates of 3 fiber classes
 
+This code holds the best clue to determining the input scaling - the graph is annotated with 
+"10dB steps from 0 to 110dB SPL rms"
+
+The code used to generate this input includes:
+
+```Julia
+	dbstep = 10;  # % 10 is good
+	dbfs = -104:dbstep:6; # % 0 to 110 dB SPL
+
+	t = (0:(1/fs):(duration - 1/fs)) # '; # % Sample times for short duration
+	sinusoid = sin.(2 * pi * t * fp);
+
+	for (i,db) = enumerate(dbfs)  # % Levels spanning a huge range
+		amplitude = sqrt(2) * 10.0^(db/20);
+                ...
+        end
+```
+Thus 0dB SPL corresponds to `db = -104` which corresponds to an amplitude of `sqrt(2) * 10.0^(db/20)` which is 8.9e-6.
+
+And 104dB SPL corresponds to `db = 0` which corresponds to an amplitude of `sqrt(2) * 10.0^(db/20)` which is 1.41 (ie a sinusoid with rms=1).
+
+Other clues for scaling come from `test_multiaural_silent_channel` where:
+```Julia
+	amplitude = 1e-3  # % -70 dBFS, around 30-40 dB SPL
+
+	# % c major chord of c-e-g at 523.25, 659.25 and 783.99
+	# % and 32.7, 41.2 and 49
+	freqs = [523.25 659.25 783.99 32.7 41.2 49]
+	c_chord = amplitude * sum(sin.(2 * pi * t * freqs), dims=2)
+```
+In this case, the computed `amplitude` is being used to scale three sinusoids, and it is not 
+clear whether the statement `around 30-40 dB SPL` refers to a single sinusoid or to the sum.
+
+In `test_multiaural_carfac` where:
+```
+	amplitude = 1e-4; # % -80 dBFS, around 20 or 30 dB SPL
+	noise = amplitude * randn(size(t));
+```
+In this cases, dBFS is referenced relative to an input with unity rms value.
+
+
+Another scaling clue comes from the AMT toolbox, file `lyon2024.m`
+```MATLAB
+  % Level correction because CARFAC works in non-standard amplitude units.
+input_waves = input_waves * sqrt(1/10); %  0 dB FS corresponds to an SPL of 104 dB
+
+```
+
 
 
 ![matlab/matlab_figure_34.png](matlab/matlab_figure_34.png)
