@@ -19,4 +19,6 @@ add_to_Julia_path( "$(DSP_lib_path)/SNR" )
 add_to_Julia_path( "$(DSP_lib_path)/DSPfns" )
 
 
+import Processors
+
 import CARFACjl

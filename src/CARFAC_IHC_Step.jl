@@ -69,3 +69,13 @@ function  CARFAC_IHC_Step(bm_out, coeffs::IHC_coeffs_struct, state::IHC_state);
         return ihc_out, state, v_recep
 
 end
+
+# all that is required for julia-signals-systems framework is a simple wrapper:
+
+# add stuff for julia-signals-systems framework:
+Base.eltype( ::Type{ Processors.Apply{I,IHC_coeffs_struct} } ) where {I} = Any
+function Processors.process( p::IHC_coeffs_struct, bm_out, state = IHC_Init_State(p) )
+        ihc_out, state, v_recep = CARFAC_IHC_Step( bm_out, p, state ) 
+        return (;ihc_out, state, v_recep), state
+end
+

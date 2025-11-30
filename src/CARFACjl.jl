@@ -2,6 +2,7 @@
 
 module CARFACjl
 
+import Processors
 
 # pretty much everything, except the tests:
 include( "ERB_Hz.jl"                )

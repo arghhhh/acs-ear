@@ -1,3 +1,9 @@
+
+# can be run with: (from a clean Julia cmdline)
+# include( "include.jl" ) ; include( "CARFAC_Test.jl" ); CARFAC_Test()
+
+
+
 # % // clang-format off
 # % Copyright 2012 The CARFAC Authors. All Rights Reserved.
 # % Author Richard F. Lyon
@@ -18,13 +24,15 @@
 # % limitations under the License.
 
 
+include( "env.jl" )
+
 using Printf
 using FFTW
 using Plots, ColorSchemes
 import Statistics
 
 
-figures = Plots.Plot[]
+figures = Plots.Plot[]  
 
 function CARFAC_Test(do_plots = true)
 # % CARFAC_TEST returns status = 0 if all tests pass; nonzero if fail,
@@ -67,6 +75,8 @@ end
 
 function test_CAR_freq_response(do_plots)
 # % Test: Make sure that the CAR frequency response looks right.
+
+	# do_plots = true
 
         status = false
 

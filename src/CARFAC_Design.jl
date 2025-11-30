@@ -17,7 +17,7 @@
 # % See the License for the specific language governing permissions and
 # % limitations under the License.
 
-mutable struct CAR_coeffs_struct
+mutable struct CAR_coeffs_struct <: Processors.SampleProcessor
         n_ch            ::Int64
         velocity_scale  ::Float64
         v_offset        ::Float64
@@ -62,7 +62,7 @@ mutable struct AGC_coeffs_struct
         AGC_coeffs_struct() = new()
 end
 
-mutable struct IHC_coeffs_struct
+mutable struct IHC_coeffs_struct <: Processors.SampleProcessor
         n_ch                :: Int64
         just_hwr            :: Bool
         lpf_coeff           :: Float64

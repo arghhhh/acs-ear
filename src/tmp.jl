@@ -3,21 +3,6 @@ include( "env.jl" )
 
 import Processors
 
-I = Ref( Processors.Integrator(2.0) )
-
-@show 1:10 |> I |> size
-@show 1:10 |> I |> length
-@show 1:10 |> I |> collect
-@show 1:10 |> I |> I |> collect
-@show 1:10 |> ( I |> I ) |> collect
-
-I[].gain = 1.0
-@show 1:10 |> ( I |> I ) |> collect
-
-
-@show eltype(  1:10 |> Processors.Integrator(2) )
-@show eltype(  1:10 |> I )
-
 
 fs = 22050
 fs = 48e3
@@ -65,4 +50,10 @@ end
 gif(anim, "anim-naps.gif", fps = 15)
 
 plot( naps[50,:] )
+
+
+
+i = Processors.Stateful( Processors.Delay(2) )
+
+@show (1:10) |> i |> collect
 

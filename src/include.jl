@@ -3,6 +3,8 @@
 # for now at least
 # ideally everything will move into a module
 
+include( "env.jl" )
+
 include( "ERB_Hz.jl"                )
 include( "CARFAC_Design_Stage_g.jl" )
 include( "CARFAC_Detect.jl"         )
@@ -24,5 +26,11 @@ include( "CARFAC_Close_AGC_Loop.jl" )
 include( "CARFAC_Cross_Couple.jl"   )
 include( "smooth1d.jl"              )
 
-include( "CARFAC_Test.jl"           )
+# include( "CARFAC_Test.jl"           )
+
+include( "CARFAC_Runner.jl" )
+
+
+include( "dmh_collect.jl"           )
+
 

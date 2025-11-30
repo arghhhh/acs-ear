@@ -54,7 +54,9 @@ function new_arrays_first_row( row::NamedTuple )
         r = NamedTuple{ keys(row) }( vector_length1.( values(row) ) )
 end
 
-
+function new_arrays_first_row( row::AbstractArray )
+        r = vector_length1( row ) 
+end
 
 
 function arrays_push!( arrays::NamedTuple, row::NamedTuple )
@@ -66,6 +68,10 @@ function arrays_push!( arrays::NamedTuple, row::NamedTuple )
                 vector_push( arrays[i], v )
         end
         return arrays
+end
+
+function arrays_push!( arrays::ResizeArray{T,N}, row::AbstractArray ) where {T,N}
+        vector_push( arrays, row )
 end
 
 
@@ -92,10 +98,35 @@ function CollectNamedTuples( iter )
 
      #   return a
 
-        @show a keys(a) values(a)
+     #   @show a keys(a) values(a)
 
         return NamedTuple{ keys(a) }( map( vector_reshape, values(a) ) )
 end
+
+function CollectArrays( iter )
+        r = iterate( iter )
+        if r === nothing
+                return nothing
+        end
+        v,state = r
+        a = new_arrays_first_row( v )
+
+        next = iterate(iter, state)
+        while next !== nothing
+                (i, state) = next
+                # body
+                arrays_push!( a, i )
+                next = iterate(iter, state)
+        end
+
+
+     #   return a
+
+     #   @show a keys(a) values(a)
+
+        return vector_reshape( a )
+end
+
 
 #=
 function Collect1( ::Val{true}, seq )
@@ -117,6 +148,7 @@ end
 
 =#
 
+#=
  @show el = [ 1 2 ; 3 4 ]
 
   @show a = vector_length1(el)
@@ -126,4 +158,5 @@ end
 @show a
   @show vector_push( a, el )
 @show a
+=#
 

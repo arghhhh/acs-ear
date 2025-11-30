@@ -87,3 +87,12 @@ function CARFAC_CAR_Step(x_in::Float64, CAR_coeffs::CAR_coeffs_struct, state::CA
 
         return car_out, state
 end
+
+# all that is required for julia-signals-systems framework is a simple wrapper:
+
+# add stuff for julia-signals-systems framework:
+Base.eltype( ::Type{ Processors.Apply{I,CAR_coeffs_struct} } ) where {I} = Any
+function Processors.process( p::CAR_coeffs_struct, x_in::Float64, state = CAR_Init_State(p) )
+        car_out, state = CARFAC_CAR_Step( x_in, p, state ) 
+        return car_out, state
+end

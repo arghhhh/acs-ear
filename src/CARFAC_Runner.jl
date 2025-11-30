@@ -10,12 +10,18 @@ mutable struct CF_Runner <: Processors.SampleProcessor
         CF::CARFAC
 end
 
-Base.eltype( ::Type{ Processors.Apply{I,CF_Runner} } ) where {I,P<:Processors.SampleProcessor} = Any
+#Base.eltype( ::Type{ Processors.Apply{I,CF_Runner} } ) where {I,P<:Processors.SampleProcessor} = Any
+Base.eltype( ::Type{ Processors.Apply{I,CF_Runner} } ) where {I} = Any
 
 function Processors.process( cf::CF_Runner, x )
         state = CARFAC_Init( cf.CF )
         return Processors.process( cf, x, state )
 end
+
+
+# make it work for normal single channel inputs:
+Processors.process( cf::CF_Runner, x::Float64 ) = Processors.process( cf, [x] )
+Processors.process( cf::CF_Runner, x::Float64, state ) = Processors.process( cf, [x], state )
 
 function Processors.process( cf::CF_Runner, x::Vector{Float64}, state )
 
