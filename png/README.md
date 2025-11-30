@@ -149,7 +149,7 @@ These also include corresponding results from the julia port - they should be id
 ---
 <a name="Sect1"></a>
 [^](#top)
-## Figure 1
+## Figure 1 - CAR Filters Linear Frequency Response
 This is showing 71 frequency responses - as intensities along 71 vertical stripes.
 The x-axis is the channel number, starting at the high frequency end of the basilar membrane.  
 The y-axis is frequency bin number - not very useful - the sample rate is 22050Hz, and the 
@@ -164,7 +164,7 @@ Extra plots show all 71 curves and one out of 5 curves.
 ---
 <a name="Sect2"></a>
 [^](#top)
-## Figure 2
+## Figure 2 - "One Cap" (v1) IHC Response for tone blips at 300Hz
 
 
 
@@ -174,7 +174,7 @@ Extra plots show all 71 curves and one out of 5 curves.
 ---
 <a name="Sect3"></a>
 [^](#top)
-## Figure 3
+## Figure 3 - "One Cap" (v1) IHC Response for tone blips at 3000Hz
 Same as previous, except for 3kHz instead of 300Hz.
 
 
@@ -184,7 +184,7 @@ Same as previous, except for 3kHz instead of 300Hz.
 ---
 <a name="Sect4"></a>
 [^](#top)
-## Figure 4
+## Figure 4 - "Two Cap" (v2) IHC Response for tone blips at 300Hz
 
 
 
@@ -194,7 +194,7 @@ Same as previous, except for 3kHz instead of 300Hz.
 ---
 <a name="Sect5"></a>
 [^](#top)
-## Figure 5
+## Figure 5 - "Two Cap" (v2) IHC Response for tone blips at 3000Hz
 Same as previous, except for 3kHz instead of 300Hz.
 
 
@@ -204,7 +204,7 @@ Same as previous, except for 3kHz instead of 300Hz.
 ---
 <a name="Sect6"></a>
 [^](#top)
-## Figure 6
+## Figure 6 - "do_syn" (v3) IHC Response for tone blips at 300Hz
 "Two-cap version with receptor potential; slightly different blips."
 
 
@@ -214,7 +214,7 @@ Same as previous, except for 3kHz instead of 300Hz.
 ---
 <a name="Sect7"></a>
 [^](#top)
-## Figure 7
+## Figure 7 - "do_syn" (v3) IHC Response "class_firings" for tone blips at 300Hz
 Plot of "class_firings" - low, medium, high spontaneous firing rate neurons(?)
 
 
@@ -224,7 +224,7 @@ Plot of "class_firings" - low, medium, high spontaneous firing rate neurons(?)
 ---
 <a name="Sect8"></a>
 [^](#top)
-## Figure 8
+## Figure 8 - "do_syn" (v3) IHC Response for tone blips at 3000Hz
 Same as previous, except for 3kHz instead of 300Hz.
 
 
@@ -234,7 +234,7 @@ Same as previous, except for 3kHz instead of 300Hz.
 ---
 <a name="Sect9"></a>
 [^](#top)
-## Figure 9
+## Figure 9 - "do_syn" (v3) IHC "class_firings" Response for tone blips at 3000Hz
 Plot of "class_firings" - low, medium, high spontaneous firing rate neurons(?)
 
 
@@ -244,7 +244,7 @@ Plot of "class_firings" - low, medium, high spontaneous firing rate neurons(?)
 ---
 <a name="Sect10"></a>
 [^](#top)
-## Figure 10
+## Figure 10 - Steady state spatial responses of the stages, default [8, 2, 2, 2] decimation
 Steady state spatial responses of the stages
 With default [8, 2, 2, 2] decimation
 Test: Make sure that the AGC adapts to an appropriate steady state, like [Lyon book] figure 19.7
@@ -256,7 +256,7 @@ Test: Make sure that the AGC adapts to an appropriate steady state, like [Lyon b
 ---
 <a name="Sect11"></a>
 [^](#top)
-## Figure 11
+## Figure 11 - Steady state spatial responses of the stages, simpler [8, 1, 1, 1] decimation
 Steady state spatial responses of the stages
 With [8, 1, 1, 1] simpler decimation
 Test: Make sure that the AGC adapts to an appropriate steady state, like [Lyon book] figure 19.7
@@ -268,7 +268,7 @@ Test: Make sure that the AGC adapts to an appropriate steady state, like [Lyon b
 ---
 <a name="Sect12"></a>
 [^](#top)
-## Figure 12
+## Figure 12 - Steady state spatial responses of the stages, no decimation
 Steady state spatial responses of the stages
 With no decimation
 Make sure 2025 non-decimating changes is "close enough" to same
@@ -280,7 +280,7 @@ Make sure 2025 non-decimating changes is "close enough" to same
 ---
 <a name="Sect13"></a>
 [^](#top)
-## Figure 13
+## Figure 13 - test stage g calculation
 Make sure the quadratic stage_g calculation agrees with the ratio of polynomials from the book
 
 
@@ -290,7 +290,7 @@ Make sure the quadratic stage_g calculation agrees with the ratio of polynomials
 ---
 <a name="Sect14"></a>
 [^](#top)
-## Figure 14
+## Figure 14 - Whole CARFAC "one cap" (v1), decimating
 Whole CARFAC v1, decimating
 
 
@@ -300,7 +300,7 @@ Whole CARFAC v1, decimating
 ---
 <a name="Sect15"></a>
 [^](#top)
-## Figure 15
+## Figure 15 - Whole CARFAC "one cap" (v1), decimating
 Whole CARFAC v1, decimating
 
 
@@ -310,7 +310,7 @@ Whole CARFAC v1, decimating
 ---
 <a name="Sect16"></a>
 [^](#top)
-## Figure 16
+## Figure 16 - Whole CARFAC "one cap" (v1), decimating
 Whole CARFAC v1, decimating
 
 
@@ -320,7 +320,7 @@ Whole CARFAC v1, decimating
 ---
 <a name="Sect17"></a>
 [^](#top)
-## Figure 17
+## Figure 17 - Whole CARFAC "two cap" (v2), decimating
 Whole CARFAC v2, decimating
 
 
@@ -330,7 +330,7 @@ Whole CARFAC v2, decimating
 ---
 <a name="Sect18"></a>
 [^](#top)
-## Figure 18
+## Figure 18 - Whole CARFAC "two cap" (v2), decimating
 Whole CARFAC v2, decimating
 
 
@@ -340,7 +340,7 @@ Whole CARFAC v2, decimating
 ---
 <a name="Sect19"></a>
 [^](#top)
-## Figure 19
+## Figure 19 - Whole CARFAC "two cap" (v2), decimating
 Whole CARFAC v2, decimating
 
 
@@ -350,7 +350,7 @@ Whole CARFAC v2, decimating
 ---
 <a name="Sect20"></a>
 [^](#top)
-## Figure 20
+## Figure 20 - Whole CARFAC "do_syn"  (v3), decimating
 Whole CARFAC v3, do_syn, decimating
 
 
@@ -360,7 +360,7 @@ Whole CARFAC v3, do_syn, decimating
 ---
 <a name="Sect21"></a>
 [^](#top)
-## Figure 21
+## Figure 21 - Whole CARFAC "do_syn"  (v3), decimating
 Whole CARFAC v3, do_syn, decimating
 
 
@@ -370,7 +370,7 @@ Whole CARFAC v3, do_syn, decimating
 ---
 <a name="Sect22"></a>
 [^](#top)
-## Figure 22
+## Figure 22 - Whole CARFAC "do_syn"  (v3), decimating
 Whole CARFAC v3, do_syn, decimating
 
 
@@ -380,7 +380,7 @@ Whole CARFAC v3, do_syn, decimating
 ---
 <a name="Sect23"></a>
 [^](#top)
-## Figure 23
+## Figure 23 - Whole CARFAC "one cap" (v1), non-decimating
 Whole CARFAC v1, non-decimating
 
 
@@ -390,7 +390,7 @@ Whole CARFAC v1, non-decimating
 ---
 <a name="Sect24"></a>
 [^](#top)
-## Figure 24
+## Figure 24 - Whole CARFAC "one cap" (v1), non-decimating
 Whole CARFAC v1, non-decimating
 
 
@@ -400,7 +400,7 @@ Whole CARFAC v1, non-decimating
 ---
 <a name="Sect25"></a>
 [^](#top)
-## Figure 25
+## Figure 25 - Whole CARFAC "one cap" (v1), non-decimating
 Whole CARFAC v1, non-decimating
 
 
@@ -410,7 +410,7 @@ Whole CARFAC v1, non-decimating
 ---
 <a name="Sect26"></a>
 [^](#top)
-## Figure 26
+## Figure 26 - Whole CARFAC "two cap" (v2), non-decimating
 Whole CARFAC v2, non-decimating
 
 
@@ -420,7 +420,7 @@ Whole CARFAC v2, non-decimating
 ---
 <a name="Sect27"></a>
 [^](#top)
-## Figure 27
+## Figure 27 - Whole CARFAC "two cap" (v2), non-decimating
 Whole CARFAC v2, non-decimating
 
 
@@ -430,7 +430,7 @@ Whole CARFAC v2, non-decimating
 ---
 <a name="Sect28"></a>
 [^](#top)
-## Figure 28
+## Figure 28 - Whole CARFAC "two cap" (v2), non-decimating
 Whole CARFAC v2, non-decimating
 
 
@@ -440,7 +440,7 @@ Whole CARFAC v2, non-decimating
 ---
 <a name="Sect29"></a>
 [^](#top)
-## Figure 29
+## Figure 29 - Whole CARFAC "do_syn"  (v3), non-decimating
 Whole CARFAC v3, do_syn, non-decimating
 
 
@@ -450,7 +450,7 @@ Whole CARFAC v3, do_syn, non-decimating
 ---
 <a name="Sect30"></a>
 [^](#top)
-## Figure 30
+## Figure 30 - Whole CARFAC "do_syn"  (v3), non-decimating
 Whole CARFAC v3, do_syn, non-decimating
 
 
@@ -460,7 +460,7 @@ Whole CARFAC v3, do_syn, non-decimating
 ---
 <a name="Sect31"></a>
 [^](#top)
-## Figure 31
+## Figure 31 - Whole CARFAC "do_syn"  (v3), non-decimating
 Whole CARFAC v3, do_syn, non-decimating
 
 
@@ -470,7 +470,7 @@ Whole CARFAC v3, do_syn, non-decimating
 ---
 <a name="Sect32"></a>
 [^](#top)
-## Figure 32
+## Figure 32 - unhealthy hf OHC noise transfer function ratio
 Verify frequency dependent reduced gain with reduced health
 This test has a random component, which explains the differences between the MATLAB and Julia versions.
 
@@ -481,7 +481,7 @@ This test has a random component, which explains the differences between the MAT
 ---
 <a name="Sect33"></a>
 [^](#top)
-## Figure 33
+## Figure 33 - Spike Rates - Instantaneous
 Instantaneous rates of 3 fiber-group classes
 
 
@@ -491,7 +491,7 @@ Instantaneous rates of 3 fiber-group classes
 ---
 <a name="Sect34"></a>
 [^](#top)
-## Figure 34
+## Figure 34 - Spike Rates - Means
 Mean rates of 3 fiber classes
 
 
@@ -501,7 +501,7 @@ Mean rates of 3 fiber classes
 ---
 <a name="Sect35"></a>
 [^](#top)
-## Figure 35
+## Figure 35 - Spike Rates - agc
 agc
 
 

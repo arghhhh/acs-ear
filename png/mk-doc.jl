@@ -221,7 +221,7 @@ open("README.md", "w") do file
         for f in 1:35
                 setanchor( "Sect$(f)" )
                 refanchor( "top", "^" )
-                heading( "Figure $(f)" )
+                heading( "Figure $(f) - $(titles[f])" )
                 paragraph( descriptions[f] )
                 figure( "matlab/matlab_figure_$(f).png" )
                 figure( "julia/julia-figure-$(f).svg"   )
