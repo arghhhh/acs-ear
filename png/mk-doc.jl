@@ -38,6 +38,10 @@ The x-axis is the channel number, starting at the high frequency end of the basi
 The y-axis is frequency bin number - not very useful - the sample rate is 22050Hz, and the 
 simulation was performed for 2^14 (16384) samples, and zero padded to 2^15.
 
+The input is an impulse with value 1.0 for the first sample and zero thereafter.
+The system is only the CAR part, and the linear flag is set.  The filter should be linear in this mode.
+The frequency response is obtained from the DFT of the impulse response.
+
 Extra plots show all 71 curves and one out of 5 curves.
 """
 
