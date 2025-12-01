@@ -1479,7 +1479,7 @@ function test_spike_rates(do_plots = false)
 
 		# figure();
 		p = plot()
-                push!( figures, p )
+                push!( figures, p )   # Fig 33
 
 		plot!(time, chan_firings);
 		plot!( title  = "Instantaneous rates of 3 fiber-group classes")
@@ -1491,7 +1491,7 @@ function test_spike_rates(do_plots = false)
 
 		# figure();
 		p = plot()
-                push!( figures, p )
+                push!( figures, p )   # Fig 34
 		plot!(time, fs*smooth1d(rates, fs*0.005)) # % Per fiber
 		plot!( title  = "Mean rates of 3 fiber classes")
 		plot!( xlabel = "time in seconds, with 10 dB steps from 0 to 110 dB SPL rms")
@@ -1513,7 +1513,7 @@ function test_spike_rates(do_plots = false)
 		channels = [octave_basal_chan, half_octave_basal_chan, best_chan, half_octave_apical_chan];
 	#	figure()
 		p = plot()
-                push!( figures, p )
+                push!( figures, p )    # Fig 35
 
 		plot!(time[1:8:end], agc[1:8:end, channels])
 		# text(2.55, 0.15, [num2str(channels(4)), ": apical 0.5"])
