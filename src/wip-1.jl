@@ -1,19 +1,25 @@
 
-
+include( "env.jl" )
+include( "include.jl" )
+include( "carfac-test-lib.jl" )
+using Plots
+using FFTW
 
 # this is derived from test_whole_carfac
 
-function wip_test_whole_carfac(; fp = 1000, fs = 22050, amplitude = 0.1, version_string = :one_cap, non_decimating = false )
+function wip_test_whole_carfac(; fp = 1000, fs = 22050, amplitude = 0.1, version_string = :one_cap, non_decimating = true )
 	# % Test: Make sure that the AGC adapts to a tone.
 	# % Test with open-loop impulse response.
 
 	# version_string = :one_cap ; non_decimating = false
 
         figures = Plots.Plot[] 
+        results = []
 
 #	fs = 22050
 #	fp = 1000 # % Probe tone
-	t = (0:(1/fs):(2 - 1/fs))  #  % Sample times for 2s of tone
+        T = 4  # originally 2 seconds
+	t = (0:(1/fs):(T - 1/fs))  #  % Sample times for T seconds of tone
 #	amplitude = 0.1
 	sinusoid = reshape( amplitude * sin.(2 * pi * t * fp), :, 1 )
 
@@ -28,9 +34,9 @@ function wip_test_whole_carfac(; fp = 1000, fs = 22050, amplitude = 0.1, version
 		AGC_params = AGC_params_default();
 		AGC_params.decimation = [1, 1, 1, 1]; # % Override default.
 	#	CF = CARFAC_Design(1, 22050, CAR_params, AGC_params, version_string);
-		CF = CARFAC_Design_version( version_string, 1, 22050, CAR_params, AGC_params );
+		CF = CARFAC_Design_version( version_string, 1, fs, CAR_params, AGC_params );
 	else
-		CF = CARFAC_Design_version(version_string, 1, 22050 ); # % With default decimation.
+		CF = CARFAC_Design_version(version_string, 1, fs ); # % With default decimation.
 	end
 	# CF = CARFAC_Init(CF);
 #	CF_state_ears = CARFAC_Init(CF);
@@ -41,14 +47,20 @@ function wip_test_whole_carfac(; fp = 1000, fs = 22050, amplitude = 0.1, version
 #	bm_initial = BM
 
 	cf = Processors.Stateful( CF_Runner( CF ) )
-	r = impulse |> cf |> CollectNamedTuples
-	bm_initial_1 = permutedims( r.BM, (3,1,2) )
+
+
+# compute initial impulse response:
+
+	r1 = impulse |> cf |> CollectNamedTuples
+	bm_initial_1 = permutedims( r1.BM, (3,1,2) )
+
+# compute response to sinusoid:
 	cf.p.CF.open_loop = false
 	cf.p.CF.linear_car = false
-	r = sinusoid |> cf |> CollectNamedTuples
+	r2 = sinusoid |> cf |> CollectNamedTuples
 
-	bm_sine_1 = permutedims( r.BM, (3,1,2) )
-	nap_1 = permutedims( r.naps, (3,1,2) )
+	bm_sine_1 = permutedims( r2.BM, (3,1,2) )
+	nap_1 = permutedims( r2.naps, (3,1,2) )
 
 
 #	CF.open_loop = false # 0; # % To let CF adapt to signal.
@@ -73,6 +85,8 @@ function wip_test_whole_carfac(; fp = 1000, fs = 22050, amplitude = 0.1, version
 #	CF.open_loop = true # 1; # % For measuring impulse response.
 #	CF.linear_car = true # 1; # % For measuring impulse response.
 
+# now adapted - freeze adaptation and clear out:
+
 	cf.p.CF.open_loop = true
 	cf.p.CF.linear_car = true
 
@@ -81,9 +95,11 @@ function wip_test_whole_carfac(; fp = 1000, fs = 22050, amplitude = 0.1, version
 #	(; CF, CF_state_ears, BM ) = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
 #	bm_final = BM
 
-	r = 0*impulse |> cf |> CollectNamedTuples
-	r =   impulse |> cf |> CollectNamedTuples
-	bm_final_1 = permutedims( r.BM, (3,1,2) )
+	r3 = 0*impulse |> cf |> CollectNamedTuples
+
+# do final impulse impulse response:
+	r4 =   impulse |> cf |> CollectNamedTuples
+	bm_final_1 = permutedims( r4.BM, (3,1,2) )
 
 #	@assert bm_final_1 == bm_final
 
@@ -92,6 +108,7 @@ function wip_test_whole_carfac(; fp = 1000, fs = 22050, amplitude = 0.1, version
 	# % Now compare impulse responses bm_initial and bm_final.
 
 	fft_len = 2048; # % Because 1024 is too sensitive to delay and such.
+	fft_len = 16384; # % Because 1024 is too sensitive to delay and such.
 	num_bins = div(fft_len,2) + 1;
 	freqs = (fs / fft_len) * (0:num_bins-1);
 
@@ -100,6 +117,8 @@ function wip_test_whole_carfac(; fp = 1000, fs = 22050, amplitude = 0.1, version
 	# do FFT column wise - MATLAB style - needs extra ,1 arg
 	initial_freq_response = 20*log10.(abs.(fft(bm_initial_1[1:fft_len, :],1)));
 	final_freq_response   = 20*log10.(abs.(fft(bm_final_1[1:fft_len, :],1)));
+
+
 	initial_freq_response = initial_freq_response[1:num_bins, :];
 	final_freq_response   = final_freq_response[1:num_bins, :];
 
@@ -116,17 +135,19 @@ function wip_test_whole_carfac(; fp = 1000, fs = 22050, amplitude = 0.1, version
 	#	%   savefig('/tmp/whole_carfac_response.png')
 	#	drawnow
 
-		p = plot()
-                push!( figures, p )
+push!( results, (; freqs, initial_freq_response, final_freq_response ) )
 
-		@show size(initial_freq_response)
-
-		plot!( freqs, initial_freq_response , xlim=(freqs[2],freqs[end]), xaxis=:log, linestyle=:dot )
-		plot!( freqs, final_freq_response  )
-		plot!( ylabel="dB", xlabel="Frequency")
-		plot!( title="Initial (dotted) vs. Adapted at 1kHz (solid) Frequency Response")
-		plot!( legend=false )
-		plot!( ylim=(-100,-15) )
+###		p = plot()
+###                push!( figures, p )
+###
+###		@show size(initial_freq_response)
+###
+###		plot!( freqs, initial_freq_response , xlim=(freqs[2],freqs[end]), xaxis=:log, linestyle=:dot )
+###		plot!( freqs, final_freq_response  )
+###		plot!( ylabel="dB", xlabel="Frequency")
+###		plot!( title="Initial (dotted) vs. Adapted at 1kHz (solid) Frequency Response")
+###		plot!( legend=false )
+###		plot!( ylim=(-100,-15) )
 
 	#end
 
@@ -154,12 +175,17 @@ function wip_test_whole_carfac(; fp = 1000, fs = 22050, amplitude = 0.1, version
 	#	title("NP: Initial (dotted) vs. Adapted (solid) Peak Gain")
 	#	# %.   savefig('/tmp/whole_carfac_peak_gain.png')
 	#	drawnow
-		p = plot()
-                push!( figures, p )
-		plot!(1:CF.n_ch, initial_resps[:,2], linestyle=:dot)
-		plot!(1:CF.n_ch, final_resps[:,2])
-		plot!( xlabel="Ear Channel #", ylabel="dB") 
-		plot!( title="NP: Initial (dotted) vs. Adapted (solid) Peak Gain")
+
+push!( results, (; channels = 1:CF.n_ch, initial_resps, final_resps ) )
+
+
+
+###		p = plot()
+###                push!( figures, p )
+###		plot!(1:CF.n_ch, initial_resps[:,2], linestyle=:dot)
+###		plot!(1:CF.n_ch, final_resps[:,2])
+###		plot!( xlabel="Ear Channel #", ylabel="dB") 
+###		plot!( title="NP: Initial (dotted) vs. Adapted (solid) Peak Gain")
 
 	#end
 
@@ -177,15 +203,63 @@ function wip_test_whole_carfac(; fp = 1000, fs = 22050, amplitude = 0.1, version
 	# 	plot!( ylim=(0,1) )
 # 
 	# #end
-	return figures
+	return results
 end
 
-
+#=
+fps = logrange( 100.0, 10e3 ; length = 51 )
 r1 = wip_test_whole_carfac(; fp = 1000, fs = 22050, amplitude = 0.1 )
 r2 = wip_test_whole_carfac(; fp = 2000, fs = 22050, amplitude = 0.1 )
+=#
 
-anim = @animate for i ∈ [r1,r2]
-    plot( i[1] )
+fs = 48e3
+
+
+# create a CARFAC just to get the pole freqs:
+version_string = :one_cap
+CF = CARFAC_Design_version(version_string, 1, fs )
+fps = reverse( CF.pole_freqs ) |> Processors.Filter( x->(x>300 && x < 15000) ) |> collect
+
+
+results = Array{Any}(undef,length(fps))
+Threads.@threads for i = 1:length(fps)
+        fp = fps[i]
+        @show i fp
+        r = wip_test_whole_carfac(; fp = fp, fs = fs, amplitude = 0.1, version_string = :one_cap, non_decimating = true )
+        results[i] = r 
 end
-gif(anim, "wip.gif", fps = 2 )
+
+
+anim = @animate for r1 in results
+
+        r = r1[1]
+        p = plot()
+        plot!( r.freqs[2:end], r.initial_freq_response[2:end,:] , xlim=(r.freqs[2],r.freqs[end]), xaxis=:log, linestyle=:dot )
+        plot!( r.freqs[2:end], r.final_freq_response[2:end,:]  )
+        plot!( ylabel="dB", xlabel="Frequency")
+        plot!( title="Initial (dotted) vs. Adapted at 1kHz (solid) Frequency Response")
+        plot!( legend=false )
+        plot!( ylim=(-100,-15) )
+end
+gif(anim, "wip.gif", fps = 10 )
+
+#=
+anim = @animate for fp ∈ fps
+   #     r = wip_test_whole_carfac(; fp = fp, fs = 22050, amplitude = 0.1 )
+        r = wip_test_whole_carfac(; fp = fp, fs = fs, amplitude = 0.1, version_string = :one_cap, non_decimating = true )
+        plot( r[1] )
+end
+gif(anim, "wip.gif", fps = 10 )
+=#
+
+anim = @animate for r1 in results
+
+        r=r1[2]
+        p = plot()
+        plot!(1:CF.n_ch, r.initial_resps[:,2], linestyle=:dot)
+        plot!(1:CF.n_ch, r.final_resps[:,2])
+        plot!( xlabel="Ear Channel #", ylabel="dB") 
+        plot!( title="NP: Initial (dotted) vs. Adapted (solid) Peak Gain")
+end
+gif(anim, "wip2.gif", fps = 10 )
 

@@ -2,6 +2,9 @@
 #=
 
 This is a modified version of CARFAC_Test.jl which uses the julia-signals-systems framework components
+in some places.  The idea is to link the new stuff with the original stuff, to aid any future 
+update work if the google/carfac repo is updated, and to "prove" that the julia-signals-systems version 
+is identical.
 
 =#
 
@@ -1460,6 +1463,18 @@ function test_spike_rates(do_plots = false)
 	ohc = r.seg_ohc
 	agc = r.seg_agc
 	firings = r.firings_all
+
+	# the above is a straight forward single simulation of CARFAC
+	# - should be easy to replicate with the julia-signals-systems version:
+
+	cf = CF_Runner( CF )
+	r1 = signal |> cf |> CollectNamedTuples
+
+	# julia-signals-systems version should match EXACTLY:
+	@assert permutedims( r1.naps, (3, 1, 2) ) == r.naps
+	@assert permutedims( r1.firings_all, (4, 1, 2, 3) )  == r.firings_all
+	@assert permutedims( r1.BM, (3, 1, 2) ) == r.BM
+
 
 #	global global_firings = firings
 
