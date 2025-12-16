@@ -6,6 +6,11 @@
 #
 # ie do the array of structs to struct of arrays conversions - but with named tuples
 
+
+# TODO: related - collect_with_state
+# allow an initial state to be specified, return state
+# this would allow MATLAB style operation
+
 import Sequences
 
 

@@ -11,17 +11,18 @@ function wip_test_whole_carfac(; fp = 1000, fs = 22050, amplitude = 0.1, version
 	# % Test: Make sure that the AGC adapts to a tone.
 	# % Test with open-loop impulse response.
 
-	# version_string = :one_cap ; non_decimating = false
+        # fp - probe tone frequency
+        # fs - sample rate
+
 
         figures = Plots.Plot[] 
         results = []
 
-#	fs = 22050
-#	fp = 1000 # % Probe tone
+
         T = 4  # originally 2 seconds
 	t = (0:(1/fs):(T - 1/fs))  #  % Sample times for T seconds of tone
-#	amplitude = 0.1
-	sinusoid = reshape( amplitude * sin.(2 * pi * t * fp), :, 1 )
+
+        sinusoid = reshape( amplitude * sin.(2 * pi * t * fp), :, 1 )
 
 	@show size(sinusoid)
 
@@ -33,75 +34,43 @@ function wip_test_whole_carfac(; fp = 1000, fs = 22050, amplitude = 0.1, version
 		CAR_params = CAR_params_default();
 		AGC_params = AGC_params_default();
 		AGC_params.decimation = [1, 1, 1, 1]; # % Override default.
-	#	CF = CARFAC_Design(1, 22050, CAR_params, AGC_params, version_string);
 		CF = CARFAC_Design_version( version_string, 1, fs, CAR_params, AGC_params );
 	else
 		CF = CARFAC_Design_version(version_string, 1, fs ); # % With default decimation.
 	end
-	# CF = CARFAC_Init(CF);
-#	CF_state_ears = CARFAC_Init(CF);
 
 	CF.open_loop = true # 1; # % For measuring impulse response.
 	CF.linear_car = true # 1; # % For measuring impulse response.
-#	(; CF, CF_state_ears, BM ) = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
-#	bm_initial = BM
 
 	cf = Processors.Stateful( CF_Runner( CF ) )
 
 
-# compute initial impulse response:
+        # TODO: should be able to extract the frequency response directly
+        # from the state - eg by making a linear CAR with the coeffs from the state
+
+        # compute initial impulse response:
 
 	r1 = impulse |> cf |> CollectNamedTuples
 	bm_initial_1 = permutedims( r1.BM, (3,1,2) )
 
-# compute response to sinusoid:
-	cf.p.CF.open_loop = false
+        # compute response to sinusoid:
+	cf.p.CF.open_loop  = false
 	cf.p.CF.linear_car = false
 	r2 = sinusoid |> cf |> CollectNamedTuples
 
 	bm_sine_1 = permutedims( r2.BM, (3,1,2) )
 	nap_1 = permutedims( r2.naps, (3,1,2) )
 
-
-#	CF.open_loop = false # 0; # % To let CF adapt to signal.
-#	CF.linear_car = false # 0; # % Normal mode.
-#	(; naps, CF, CF_state_ears, BM ) = CARFAC_Run_Segment(CF, CF_state_ears, sinusoid);
-#	nap = naps
-#	bm_sine = BM
-
-#	@show extrema( bm_initial - bm_initial_1 )
-#	@show extrema( nap        - nap_1        )
-#	@show extrema( bm_sine    - bm_sine_1    )
-
-
-#	# % Capture AGC state response at end, for analysis later.
-#	num_stages = CF.AGC_params.n_stages; # % 4
-#	agc_response = zeros(num_stages, CF.n_ch);
-#	for stage = 1:num_stages
-#		@assert cf.state[1].AGC_state.AGC_memory == CF_state_ears[1].AGC_state.AGC_memory
-#		agc_response[stage, :] = CF_state_ears[1].AGC_state.AGC_memory[:, stage];
-#	end
-
-#	CF.open_loop = true # 1; # % For measuring impulse response.
-#	CF.linear_car = true # 1; # % For measuring impulse response.
-
-# now adapted - freeze adaptation and clear out:
+        # now adapted - freeze adaptation and clear out:
 
 	cf.p.CF.open_loop = true
 	cf.p.CF.linear_car = true
 
-
-#	(; CF, CF_state_ears ) = CARFAC_Run_Segment(CF, CF_state_ears, 0*impulse); # % To let ringing die out.
-#	(; CF, CF_state_ears, BM ) = CARFAC_Run_Segment(CF, CF_state_ears, impulse);
-#	bm_final = BM
-
 	r3 = 0*impulse |> cf |> CollectNamedTuples
 
-# do final impulse impulse response:
+        # do final impulse impulse response:
 	r4 =   impulse |> cf |> CollectNamedTuples
 	bm_final_1 = permutedims( r4.BM, (3,1,2) )
-
-#	@assert bm_final_1 == bm_final
 
 	# after this point in this function - it is just analysis - no more simulation.
 

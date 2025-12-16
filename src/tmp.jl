@@ -2,41 +2,63 @@
 include( "env.jl" )
 
 import Processors
+import Sequences
+using Plots
 
+include("dmh_collect.jl" )
 
 fs = 22050
 fs = 48e3
 
 sig = [ [1.0], [1.0], [1.0] ]
 
-import Sequences
-s = Sequences.Sinusoid( 1000, fs ) |> Processors.Take(10000)
 
-sig = map( x->[x], ones(500) ) 
-sig = map( x->[x], s ) 
+function do_animation( f_sig, fs, filename )
 
-CF = CARFACjl.CARFAC_Design(1, fs)
-CF = CARFACjl.CARFAC_Design_version( :do_syn, 1, fs )
+   # f_sig = 1000
+    period_samples = round( Int64, fs / f_sig )
 
-t = sig |> CARFACjl.CF_Runner( CF ) |> Processors.Drop(9000) |> collect
+    s = Sequences.Sinusoid( f_sig, fs ) |> Processors.Take(9000+period_samples)
 
-include("dmh_collect.jl" )
+    sig = map( x->[x], ones(500) ) 
+    sig = map( x->[x], s ) 
 
-a = CollectNamedTuples(t)
-bm = a.BM[:,1,:]
-nr,nc = size(bm)
+    sig = s
 
-mi,ma = extrema(bm)
+    CF = CARFACjl.CARFAC_Design(1, fs)
+    CF = CARFACjl.CARFAC_Design_version( :do_syn, 1, fs )
 
-using Plots
+    t = sig |> CARFACjl.CF_Runner( CF ) |> Processors.Drop(9000) |> Processors.Take(period_samples) |> collect
 
-anim = @animate for i ∈ 1:nc
-    plot( bm[:,i], ylim=(mi,ma) )
+
+    a = CollectNamedTuples(t)
+    bm = a.BM[:,1,:]
+    nr,nc = size(bm)
+
+    mi1,ma1 = extrema(bm)
+
+    mi = minimum( bm ; dims = 2 )
+    ma = maximum( bm ; dims = 2 )
+
+
+    anim = @animate for i ∈ 1:nc
+        plot( bm[:,i], ylim=(-8,8), linewidth=2, framestyle=:box, legend=nothing )
+        plot!( mi , linestyle=:dash )
+        plot!( ma , linestyle=:dash )
+        plot!( xlabel="channel number", ylabel="basilar membrane motion (arbitrary scaling)" )
+    end
+    gif(anim, filename, fps = 15)
+
 end
-gif(anim, "anim.gif", fps = 15)
 
 
+do_animation( 500.0, fs, "bm_0500.gif" )
+do_animation( 1000.0, fs, "bm_1000.gif" )
+do_animation( 2000.0, fs, "bm_2000.gif" )
+do_animation( 4000.0, fs, "bm_4000.gif" )
+do_animation( 8000.0, fs, "bm_8000.gif" )
 
+#=
 naps = a.naps[:,1,:]
 nr,nc = size(naps)
 
@@ -50,7 +72,7 @@ end
 gif(anim, "anim-naps.gif", fps = 15)
 
 plot( naps[50,:] )
-
+=#
 
 
 i = Processors.Stateful( Processors.Delay(2) )
