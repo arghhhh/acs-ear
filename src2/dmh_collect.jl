@@ -165,9 +165,3 @@ end
 @show a
 =#
 
-# 
-# 
-# 
-# 
-# f1(x,s) = (;x,s)
-# f1.([1,2,3],[0,0,0]) |> CollectNamedTuples
