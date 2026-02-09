@@ -7,6 +7,10 @@
 # ie do the array of structs to struct of arrays conversions - but with named tuples
 
 
+# could extend this for ordinary tuples
+
+
+
 # TODO: related - collect_with_state
 # allow an initial state to be specified, return state
 # this would allow MATLAB style operation
@@ -23,7 +27,8 @@ end
 # take any value, and start a collection to which further values can be efficiently appended:
 # general case:
 function vector_length1( x )
-        [x] 
+        @assert x isa Number
+        [ x ] 
 end
 # any kind of vector, matrix, multidimensional array:
 ## function vector_length1( x::AbstractArray{T,N} ) where {T,N}
@@ -31,22 +36,32 @@ end
 ##         # will add further elements of same type as x, at end:
 ##         reshape( r, size(r)..., 1 )
 ## end
-function vector_length1( x::AbstractArray{T,N} ) where {T,N}
-        return ResizeArray{T,N}( size(x), reshape( x, : ) )
-end
 
+
+#### function vector_length1( x::AbstractArray{T,N} ) where {T,N}
+####         v = T[]
+####         append!( v, reshape( x, : ) )
+####         return ResizeArray{T,N}( size(x), v )
+#### end
+function vector_length1( x::AbstractArray ) 
+        x1 = identity.(x)  # broadcast identity will tighten up array of element type Any, also copies
+        v = Vector{ eltype(x1) }()
+        append!( v, reshape( x1, : ) )  # TODO: I think this can be simplified / improved, but not now.
+        return ResizeArray( size(x), v )
+end
 
 # for any collection started by vector_length1, add another element:
 function vector_push( a::AbstractArray{T,N}, v ) where {T,N}
         push!( a, v )
 end
-function vector_push( a::ResizeArray{T,N}, v::AbstractArray{T,N} ) where {T,N}
+function vector_push( a::ResizeArray{T,N}, v::AbstractArray ) where {T,N}
         append!( a.v, reshape(v,:) )
 end
 
 
 # at the end, want to put shape back in:
 vector_reshape( v ) = v
+vector_reshape( t::NamedTuple ) = NamedTuple{ keys(t) }( vector_reshape.( values(t) ) )
 vector_reshape( v::ResizeArray{T,N} ) where {T,N} = begin
         if length(v.v) == 0
                 return reshape( v.v, v.elsize..., 0 )
@@ -116,11 +131,14 @@ function CollectArrays( iter )
         v,state = r
         a = new_arrays_first_row( v )
 
+ #       @show a
         next = iterate(iter, state)
         while next !== nothing
                 (i, state) = next
                 # body
+  #              @show typeof(i)
                 arrays_push!( a, i )
+  #              @show typeof(a) a
                 next = iterate(iter, state)
         end
 

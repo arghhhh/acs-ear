@@ -145,7 +145,7 @@ mutable struct IHC1_state
 
 
 
-        IHC1_state() = new()
+        IHC1_state() = new(0.0,0.0,0.0,0.0,0.0)
 end               
 
 function IHC_Init_State(coeffs::IHC_hwr)::IHC1_state
@@ -183,7 +183,7 @@ end
 
 
 
-function Processors.process( f::IHC_one_cap, bm_out, state = IHC_one_cap_Init_State(f) )
+function Processors.process( coeffs::IHC_one_cap, bm_out, state = IHC_Init_State(coeffs) )
 
         conductance = CARFAC_Detect(bm_out) # % rectifying nonlinearity
 
@@ -196,10 +196,12 @@ function Processors.process( f::IHC_one_cap, bm_out, state = IHC_one_cap_Init_St
         state.lpf2_state = state.lpf2_state + coeffs.lpf_coeff * (state.lpf1_state - state.lpf2_state)
         ihc_out = state.lpf2_state .- coeffs.rest_output
 
-        return  (;ihc_out, v_recep), state
+        v_recep = 0.0  # only used for two_cap version
+
+        return  (;ihc_out, v_recep, state.cap_voltage ), state
 end
 
-function Processors.process( f::IHC_two_cap, bm_out, state = IHC_two_cap_Init_State(f) )
+function Processors.process( coeffs::IHC_two_cap, bm_out, state = IHC_Init_State(coeffs) )
 
         conductance = CARFAC_Detect(bm_out) # % rectifying nonlinearity
 
@@ -223,7 +225,7 @@ function Processors.process( f::IHC_two_cap, bm_out, state = IHC_two_cap_Init_St
         # % Return a modified receptor potential that's zero at rest, for SYN.
         v_recep = coeffs.rest_cap1 - state.cap1_voltage
                 
-        return  (;ihc_out, v_recep), state
+        return  (;ihc_out, v_recep, state.cap_voltage), state
 end
 
 #=

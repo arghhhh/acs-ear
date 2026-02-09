@@ -47,7 +47,7 @@ mutable struct CAR_coeffs_struct <: Processors.SampleProcessor
 	end
 end
 
-mutable struct AGC_coeffs_struct
+mutable struct AGC_coeffs_struct <: Processors.SampleProcessor
         n_AGC_stages        :: Int64
         n_ch                :: Int64
         decimation          :: Vector{Int64}
@@ -410,7 +410,7 @@ end
 
 
 # %% Design the AGC coeffs:
-function CARFAC_DesignAGC(AGC_params, fs, n_ch)
+function CARFAC_DesignAGC(AGC_params::AGC_params, fs, n_ch)
 
         # % AGC1 pass is smoothing from base toward apex; AGC2 pass is back.
         AGC1_scales = AGC_params.AGC1_scales
@@ -466,6 +466,7 @@ function CARFAC_DesignAGC(AGC_params, fs, n_ch)
         return AGC_coeffs
 end
 
+CARFAC_AGC( fs, n_ch, AGC_params::AGC_params = AGC_params() ) = CARFAC_DesignAGC(AGC_params, fs, n_ch)
 
 
 # %% Design the AGC's 3-point FIR spatial filter:

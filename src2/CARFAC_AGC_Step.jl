@@ -176,3 +176,12 @@ function CARFAC_AGC_Recurse(coeffs::AGC_coeffs_struct, AGC_in::Vector{Float64}, 
 
         return state, updated
 end
+
+# all that is required for julia-signals-systems framework is a simple wrapper:
+
+# add stuff for julia-signals-systems framework:
+# Base.eltype( ::Type{ Processors.Apply{I,CAR_coeffs_struct} } ) where {I} = Any
+function Processors.process( p::AGC_coeffs_struct, x_in::Vector{Float64}, state = AGC_Init_State(p) )
+        state, updated = CARFAC_AGC_Step( x_in, p, state ) 
+        return (;y=state.AGC_memory[:, 1]  , updated ), state  #  % stage 1 result
+end

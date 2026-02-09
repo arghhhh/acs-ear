@@ -37,5 +37,6 @@ include( "carfac.jl" )
 
 
 include( "2026_CAR_filter.jl" )
+include( "2026_Loop.jl"       )
 include( "2026_DOHC.jl"       )
 include( "2026_IHC.jl"        )

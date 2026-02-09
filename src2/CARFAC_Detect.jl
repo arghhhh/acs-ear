@@ -29,6 +29,10 @@ function CARFAC_Detect1(x_in)
         # % this parameter is adjusted for the book, to make the 20% DC
         # % response threshold at 0.1
 
+
+        # DMH: book p 328:
+
+
         set = x_in > -a
         z = x_in + a
 

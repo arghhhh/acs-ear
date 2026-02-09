@@ -33,13 +33,13 @@ function CARFAC_CAR_Step(x_in::Float64, CAR_coeffs::CAR_coeffs_struct, state::CA
         zA = state.zA_memory
         v  = state.z2_memory - zA
         if CAR_coeffs.linear
-                nlf = 1
+                nlf_out = 1
         else
         # % nlf = CARFAC_OHC_NLF(v .* widen, CAR_coeffs);  % widen v with feedback
-                nlf = CARFAC_OHC_NLF(v, CAR_coeffs)
+                nlf_out = CARFAC_OHC_NLF(v, CAR_coeffs)
         end
         # % zB * nfl is "undamping" delta r:
-        r = CAR_coeffs.r1_coeffs + zB .* nlf
+        r = CAR_coeffs.r1_coeffs + zB .* nlf_out
         zA = state.z2_memory
 
         # % now reduce state by r and rotate with the fixed cos/sin coeffs:
