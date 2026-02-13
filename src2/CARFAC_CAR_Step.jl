@@ -19,6 +19,9 @@
 # % See the License for the specific language governing permissions and
 # % limitations under the License.
 
+global global_zB
+global global_zB_scaled
+
 function CARFAC_CAR_Step(x_in::Float64, CAR_coeffs::CAR_coeffs_struct, state::CAR_state )
 # % function [zY, state] = CARFAC_CAR_Step(x_in, CAR_coeffs, state)
         # %
@@ -32,6 +35,12 @@ function CARFAC_CAR_Step(x_in::Float64, CAR_coeffs::CAR_coeffs_struct, state::CA
         # % do the DOHC stuff:
         g  = state.g_memory  + state.dg_memory     # % interp g
         zB = state.zB_memory + state.dzB_memory    #  % AGC interpolation state
+
+   #     println("CARFAC_CAR_Step: zB scaled:")
+   #     display( zB ./ CAR_coeffs.zr_coeffs )
+global global_zB = zB
+global global_zB_scaled = zB ./ CAR_coeffs.zr_coeffs
+
         # % update the nonlinear function of "velocity", and zA (delay of z2):
         zA = state.zA_memory
         v  = state.z2_memory - zA
@@ -78,7 +87,7 @@ function CARFAC_CAR_Step(x_in::Float64, CAR_coeffs::CAR_coeffs_struct, state::CA
                 ###### IN ORDER TO EXACTLY MATCH NEW MODEL
                 g1 = CARFAC_Design_Stage_g(CAR_coeffs, zB ./ CAR_coeffs.zr_coeffs )
 
-                @show zB ./ CAR_coeffs.zr_coeffs
+         #       @show zB ./ CAR_coeffs.zr_coeffs
 
               #  g1 .= 1.0
 

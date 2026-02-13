@@ -208,6 +208,8 @@ function Processors.process( f::CARFAC_Loop, inp::Float64 )
 
         agc_out, next_agc_state = Processors.process( f.agc, agc_in  )
 
+# @show agc_out.updated
+
      #   @show agc_out
         initial_loop_input = [ (; x = each_agc_out_y, updated = agc_out.updated ) for each_agc_out_y in agc_out.y ]
     #    initial_loop_input = (; x=agc_out.y, updated = agc_out.updated )
@@ -238,6 +240,10 @@ function Processors.process( f::CARFAC_Loop, inp::Float64, state )
  
         n_ch = length(f.resonators)
         
+
+    #    println( "New version, zB:" )
+    #    display( [ loop_state[i].zB_memory for i in 1:n_ch ] )
+
         # provide the two inputs to the DOHC - one from the resonator state variable, and one from the loop feedback
         DOHC_input = [ (; x = resonator_state[i].z2_memory, b = loop_state[i].zB_memory ) for i in 1:n_ch ] 
    #     DOHC_input = [ (; x = resonator_state[i].z2_memory, b = 1.0 ) for i in 1:n_ch ] 
@@ -273,6 +279,8 @@ function Processors.process( f::CARFAC_Loop, inp::Float64, state )
         agc_in = [ each_ihc_out.ihc_out for each_ihc_out in ihc_out ]
 
         agc_out, next_agc_state = Processors.process( f.agc, agc_in, agc_state  )
+
+# @show agc_out.updated
 
     #    @show agc_out
         initial_loop_input = [ (; x = each_agc_out_y, updated = agc_out.updated ) for each_agc_out_y in agc_out.y ]

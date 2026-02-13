@@ -16,7 +16,7 @@ function Processors.process( agc::AGC_Loop, x1, state = ( zB_memory = 1.0, dzB_m
         x = x1.x
         updated = x1.updated
 
-        zB = state.zB_memory + state.dzB_memory
+  #     zB = state.zB_memory + state.dzB_memory
 
         dzB = state.dzB_memory
 
@@ -40,6 +40,17 @@ function Processors.process( agc::AGC_Loop, x1, state = ( zB_memory = 1.0, dzB_m
                 # removed the agc.zr_coeffs factor - this is applied in the DOHC
                 dzB = ( undamping - state.zB_memory ) / agc.decim1
         end
+
+
+        # there was a subtle difference between the original CARFAC and this version involving when these 
+        # integrators were updated.  The original does this integration in the resonator code (ie near the beginning of the computational cycle)
+        # whereas this implementation has it at the end - in this case it is really doing the integration corresponding to the next sample
+        # so need to do this with the new value of dzB that was just calculated.
+        # there is also the possibility of an initial transient difference, if the initial value of dzB is not zero - but it is.
+
+        # update with the new value:
+        zB = state.zB_memory + dzB
+
 
      #   zB = 1.0 ## TODO: temporary
 

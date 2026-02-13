@@ -21,10 +21,10 @@ function CARFAC_Close_AGC_Loop(CF::CARFAC, CF_state_ears::Vector{Ear_state})
         # % function CF = CARFAC_Close_AGC_Loop(CF)
 
 
-        println("################")
-        @show CF_state_ears[1].CAR_state.dzB_memory
-        @show CF_state_ears[1].CAR_state.dg_memory
-        println("################")
+   #     println("################")
+   #     @show CF_state_ears[1].CAR_state.dzB_memory
+   #     @show CF_state_ears[1].CAR_state.dg_memory
+   #     println("################")
 
         # % fastest decimated rate determines interp needed:
         decim1 = CF.AGC_params.decimation[1];

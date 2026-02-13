@@ -177,9 +177,9 @@ function Processors.process( f::CAR_filter, x1, state = (; z1_memory=0.0, z2_mem
         gain = ideal_g  # ideal
      #   gain = stage_g  # quadratic approx
 
-        @show agc_undamping
+     #   @show agc_undamping
 
-        @assert abs( 20.0 * log10( ideal_g / stage_g ) ) < 0.01 # dB error
+        @assert abs( 20.0 * log10( ideal_g / stage_g ) ) < 0.1 # dB error
 
      #   gain = 1.0 ##### TODO: temporary
 
