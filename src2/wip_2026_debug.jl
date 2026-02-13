@@ -31,7 +31,7 @@ non_decimating = false
 	fs = 22050
 	fp = 1000 # % Probe tone
 	t = (0:(1/fs):(2 - 1/fs))  #  % Sample times for 2s of tone
-	t = 1/fs * (1:1000)
+#	t = 1/fs * (1:1000)
 	amplitude = 0.1
 	sinusoid = reshape( amplitude * sin.(2 * pi * t * fp), :, 1 )
 
@@ -286,7 +286,7 @@ global dbg2 = initial_freq_response
 
 end ##################
 
-
+#error("stop")
 
 
 
@@ -308,7 +308,7 @@ car = CAR_filter.( cfs, fs )
 carfac = CARFAC_Loop( fs, car )
 
 
-if false
+if true
         ys = sinusoid |> carfac
 
         global state
@@ -321,7 +321,11 @@ if false
         # compare end AGC states:
         @show maximum( abs.( state[2][5].AGC_memory' - agc_response ))
 
+
+plot( agc_response[1,:] )
+plot!( state[2][5].AGC_memory[:,1] )
         error("stopped")
+
 end
 
 
