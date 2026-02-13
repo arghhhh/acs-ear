@@ -33,7 +33,7 @@ function Processors.process( f::DOHC, in, state=0.0 )
         velocity = ( x - state ) * f.fs/ f_ref_DOHC_nlf
         nlf_out = f.nlf( velocity )
 
-        @assert b == 1.0
+#        @assert b == 1.0
 
         relative_undamping = nlf_out * b #  (1-b)  the one minus b operation takes place in AGC_Loop
         delta_r = relative_undamping * f.d_rz
@@ -43,7 +43,7 @@ function Processors.process( f::DOHC, in, state=0.0 )
 
         # pass through the AGC undamping agc_undamping = b, so that resonator can set its gain according to the AGC undamping only
         y = (; velocity, nlf_out, relative_undamping, delta_r, r, state=x, agc_undamping = b )
-        y = (; velocity, nlf_out, relative_undamping, delta_r, r, state=x, agc_undamping = 1.0 )  #### TODO: temporary set agc_undamping = 1.0
+  #      y = (; velocity, nlf_out, relative_undamping, delta_r, r, state=x, agc_undamping = 1.0 )  #### TODO: temporary set agc_undamping = 1.0
 
     #    println( "DOHC: y = $(y)" )
 
@@ -240,7 +240,7 @@ function Processors.process( f::CARFAC_Loop, inp::Float64, state )
         
         # provide the two inputs to the DOHC - one from the resonator state variable, and one from the loop feedback
         DOHC_input = [ (; x = resonator_state[i].z2_memory, b = loop_state[i].zB_memory ) for i in 1:n_ch ] 
-        DOHC_input = [ (; x = resonator_state[i].z2_memory, b = 1.0 ) for i in 1:n_ch ] 
+   #     DOHC_input = [ (; x = resonator_state[i].z2_memory, b = 1.0 ) for i in 1:n_ch ] 
 
     #    process_dohc_output = [ Processors.processor( each_ohc, (; x=each_input.x, b =each_input.b) ) for (each_ohc,each_input) in zip( f.ohc, initial_DOHC_input ) ]
         dohc_output, next_dohc_state = parallel_process( f.dohc, DOHC_input, dohc_state )

@@ -45,7 +45,7 @@ function CARFAC_Close_AGC_Loop(CF::CARFAC, CF_state_ears::Vector{Ear_state})
         end
 
         #### TODO: temporary - open loop by zeroing out dzB_memory
-        CF_state_ears[1].CAR_state.dzB_memory .= 0.0 # CF.ears[1].CAR_coeffs.zr_coeffs
+  #      CF_state_ears[1].CAR_state.dzB_memory .= 0.0 # CF.ears[1].CAR_coeffs.zr_coeffs
         #### TODO: temporary - confirm that gain is being calculated exactly locally now, by zeroing out dg_memory
         CF_state_ears[1].CAR_state.dg_memory  .= 0.0
 
