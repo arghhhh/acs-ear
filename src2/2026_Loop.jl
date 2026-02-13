@@ -10,7 +10,7 @@ struct AGC_Loop <: Processors.SampleProcessor
         zr_coeffs
 end
  
-function Processors.process( agc::AGC_Loop, x1, state = ( zB_memory = 0.0, dzB_memory = 0.0 ) )
+function Processors.process( agc::AGC_Loop, x1, state = ( zB_memory = 1.0, dzB_memory = 0.0 ) )
         # % function CF = CARFAC_Close_AGC_Loop(CF)
 
         x = x1.x
@@ -32,9 +32,19 @@ function Processors.process( agc::AGC_Loop, x1, state = ( zB_memory = 0.0, dzB_m
                 undamping = undamping * agc.OHC_health;
 
 
+
+
                 # % set the deltas needed to get to the new damping:
-                dzB = ( agc.zr_coeffs * undamping - state.zB_memory ) / agc.decim1
+          #      dzB = ( agc.zr_coeffs * undamping - state.zB_memory ) / agc.decim1
+
+                # removed the agc.zr_coeffs factor - this is applied in the DOHC
+                dzB = ( undamping - state.zB_memory ) / agc.decim1
         end
+
+     #   zB = 1.0 ## TODO: temporary
+
+        # when the loop is closed, the AGC_undamping signal is actually taken from the state variable (to save storing another copy of it as a top level state variable)
+        # so it is important that state is also hacked here...
 
         next_state = ( zB_memory = zB, dzB_memory = dzB )
                 

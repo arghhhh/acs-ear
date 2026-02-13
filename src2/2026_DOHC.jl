@@ -3,6 +3,7 @@
 nlf( scale = 0.1, offset = 0.04 ) = v -> 1.0 / ( 1+ (v * scale + offset )^2 )
 
 f_ref_DOHC_nlf = 48000.0
+f_ref_DOHC_nlf = 22050.0
 
 struct DOHC <: Processors.SampleProcessor
         r1      # pole radius at max damping (smallest r)
@@ -24,20 +25,25 @@ single_default( x , n::Symbol, default ) = x
 
 function Processors.process( f::DOHC, in, state=0.0 )
         x = single_default( in, :x, 0.0 )
-        b = tuple_default( in, :b, 0.0 )
+        b = tuple_default( in, :b, 1.0 )
 
     #    println("DOHC x = $(x), b = $(b) ")
 
         global f_ref_DOHC_nlf  # reference frequency for which nlf was 
         velocity = ( x - state ) * f.fs/ f_ref_DOHC_nlf
         nlf_out = f.nlf( velocity )
-        relative_undamping = nlf_out * (1-b)
+
+        @assert b == 1.0
+
+        relative_undamping = nlf_out * b #  (1-b)  the one minus b operation takes place in AGC_Loop
         delta_r = relative_undamping * f.d_rz
         r = f.r1 + delta_r
 
     #    println( "DOHC relative_undamping = $(relative_undamping)" )
 
-        y = (; velocity, nlf_out, relative_undamping, delta_r, r, state=x )
+        # pass through the AGC undamping agc_undamping = b, so that resonator can set its gain according to the AGC undamping only
+        y = (; velocity, nlf_out, relative_undamping, delta_r, r, state=x, agc_undamping = b )
+        y = (; velocity, nlf_out, relative_undamping, delta_r, r, state=x, agc_undamping = 1.0 )  #### TODO: temporary set agc_undamping = 1.0
 
     #    println( "DOHC: y = $(y)" )
 
@@ -89,7 +95,7 @@ function Processors.process( f::CAR_DOHC, in )
     #    @show x b
 
         dohc_out,next_dohc_state = Processors.process( f.dohc, ( x=0.0, b=b ) )  # initial input to DOHC is zer0
-        resonator_out, next_resonator_state = Processors.process( f.resonator, (;x=x,undamping = dohc_out.relative_undamping) )
+        resonator_out, next_resonator_state = Processors.process( f.resonator, (;x=x,undamping = dohc_out.relative_undamping, agc_undamping = dohc_out.agc_undamping) )
 
         return (;y=resonator_out.y,dohc_out, resonator_out), (next_dohc_state, next_resonator_state)
 end
@@ -106,7 +112,7 @@ function Processors.process( f::CAR_DOHC, in, state )
    #     @show resonator_state.z2_memory
         dohc_out,next_dohc_state = Processors.process( f.dohc, (; x=resonator_state.z2_memory, b ), dohc_state )
     #    @show dohc_out.relative_undamping
-        resonator_out, next_resonator_state = Processors.process( f.resonator, (;x=x,undamping = dohc_out.relative_undamping), resonator_state )
+        resonator_out, next_resonator_state = Processors.process( f.resonator, (;x=x,undamping = dohc_out.relative_undamping, agc_undamping = dohc_out.agc_undamping), resonator_state )
 
         return (;y=resonator_out.y,dohc_out, resonator_out), (next_dohc_state, next_resonator_state)
 end
@@ -116,6 +122,7 @@ end
 
 struct CARFAC_Loop <: Processors.SampleProcessor
         resonators::Vector{CAR_filter}
+        ac::Vector{ AC_Couple }
         dohc::Vector{DOHC}
         ihc::Vector
         loop::Vector{AGC_Loop}
@@ -138,8 +145,10 @@ function CARFAC_Loop( fs::Float64, resonators::Vector, agc_params = AGC_params()
         IHC_version = :one_cap
 
         ihc = [ IHC1( IHC_version, fs ) for i in 1:n_ch ]
+
+        ac = [ AC_Couple( fs ) for i in 1:n_ch ]
         
-        return CARFAC_Loop( resonators, dohc, ihc, loop, agc )
+        return CARFAC_Loop( resonators, ac, dohc, ihc, loop, agc )
 end
 
 
@@ -168,7 +177,7 @@ function Processors.process( f::CARFAC_Loop, inp::Float64 )
  
         n_ch = length(f.resonators)
         
-        initial_DOHC_input = [ (; x = 0.0, b = 0.0 ) for i in 1:n_ch ] # TODO: initial state of "b"?
+        initial_DOHC_input = [ (; x = 0.0, b = 1.0 ) for i in 1:n_ch ] # TODO: initial state of "b"?
 
     #    process_dohc_output = [ Processors.processor( each_ohc, (; x=each_input.x, b =each_input.b) ) for (each_ohc,each_input) in zip( f.ohc, initial_DOHC_input ) ]
         dohc_output, next_dohc_state = parallel_process( f.dohc, initial_DOHC_input )
@@ -178,15 +187,22 @@ function Processors.process( f::CARFAC_Loop, inp::Float64 )
         res_ys = []
         for (r,b) in zip( f.resonators, dohc_output )
          #       @show inp x ( x=x, undamping=b.relative_undamping )
-                each_resonator_out, each_resonator_state = Processors.process( r, ( x=x, undamping=b.relative_undamping ) )
+                each_resonator_out, each_resonator_state = Processors.process( r, ( x=x, undamping=b.nlf_out, agc_undamping = b.agc_undamping ) )
                 push!( next_resonator_state, each_resonator_state )
                 push!( res_ys   , each_resonator_out   )
                 x = each_resonator_out.y
         end
 
-        ihc_in = [ r_y.y for r_y in res_ys ]
 
-        ihc_out, next_ihc_state = parallel_process( f.ihc, ihc_in )
+        ac_in = [ r_y.y for r_y in res_ys ]
+
+        ac_out, next_ac_state = parallel_process( f.ac, ac_in )
+
+        ihc_out, next_ihc_state = parallel_process( f.ihc, ac_out )
+
+#        ihc_in = [ r_y.y for r_y in res_ys ]
+
+#        ihc_out, next_ihc_state = parallel_process( f.ihc, ihc_in )
 
         agc_in = [ each_ihc_out.ihc_out for each_ihc_out in ihc_out ]
 
@@ -197,23 +213,37 @@ function Processors.process( f::CARFAC_Loop, inp::Float64 )
     #    initial_loop_input = (; x=agc_out.y, updated = agc_out.updated )
 
     #    @show initial_loop_input
-        loop_out, next_loop_state = parallel_process( f.loop, initial_loop_input )
+        loop_output, next_loop_state = parallel_process( f.loop, initial_loop_input )
 
-        next_state = ( next_dohc_state, next_resonator_state, next_ihc_state, next_agc_state, next_loop_state )
+        next_state = ( next_dohc_state, next_resonator_state, next_ac_state, next_ihc_state, next_agc_state, next_loop_state )
 
-        return (;y=res_ys, dohc_output ), next_state
+        nlf_out = [ each_dohc_output.nlf_out for each_dohc_output in dohc_output ]
+        zB      = loop_output
+
+        mag = [ each_car.mag for each_car in res_ys ]
+        bm  = copy( ac_out )
+
+        return (;y=res_ys, bm, dohc_output, nlf_out, zB, agc_out = agc_out.y, agc_state=next_agc_state.AGC_memory, mag ), next_state
+
+      #  return (;y=res_ys, dohc_output, nlf_out, zB, agc_out = agc_out.y, mag ), next_state
+
+      #  return (;y=res_ys, dohc_output, nlf_out, zB, agc_out = agc_out.y ), next_state
+
+      #  return (;y=res_ys, dohc_output, nlf_out, zB ), next_state
 end
 
 function Processors.process( f::CARFAC_Loop, inp::Float64, state )
 
-        ( dohc_state, resonator_state, ihc_state, agc_state, loop_state ) = state
+        ( dohc_state, resonator_state, ac_state, ihc_state, agc_state, loop_state ) = state
  
         n_ch = length(f.resonators)
         
-        initial_DOHC_input = [ (; x = 0.0, b = 0.0 ) for i in 1:n_ch ] # TODO: initial state of "b"?
+        # provide the two inputs to the DOHC - one from the resonator state variable, and one from the loop feedback
+        DOHC_input = [ (; x = resonator_state[i].z2_memory, b = loop_state[i].zB_memory ) for i in 1:n_ch ] 
+        DOHC_input = [ (; x = resonator_state[i].z2_memory, b = 1.0 ) for i in 1:n_ch ] 
 
     #    process_dohc_output = [ Processors.processor( each_ohc, (; x=each_input.x, b =each_input.b) ) for (each_ohc,each_input) in zip( f.ohc, initial_DOHC_input ) ]
-        dohc_output, next_dohc_state = parallel_process( f.dohc, initial_DOHC_input, dohc_state )
+        dohc_output, next_dohc_state = parallel_process( f.dohc, DOHC_input, dohc_state )
 
         x = inp
         next_resonator_state = []
@@ -221,15 +251,24 @@ function Processors.process( f::CARFAC_Loop, inp::Float64, state )
         for (r,b,s) in zip( f.resonators, dohc_output, resonator_state )
               #  @show inp x ( x=x, undamping=b.relative_undamping )
               #  @show resonator_state
-                each_resonator_out, each_resonator_state = Processors.process( r, ( x=x, undamping=b.relative_undamping ), s )
+                each_resonator_out, each_resonator_state = Processors.process( r, ( x=x, undamping=b.relative_undamping, agc_undamping = b.agc_undamping ), s )
                 push!( next_resonator_state, each_resonator_state )
                 push!( res_ys   , each_resonator_out   )
                 x = each_resonator_out.y
         end
 
-        ihc_in = [ r_y.y for r_y in res_ys ]
+      #  ihc_in = [ r_y.y for r_y in res_ys ]
 
-        ihc_out, next_ihc_state = parallel_process( f.ihc, ihc_in, ihc_state )
+      #  ihc_out, next_ihc_state = parallel_process( f.ihc, ihc_in, ihc_state )
+
+       ac_in = [ r_y.y for r_y in res_ys ]
+
+        ac_out, next_ac_state = parallel_process( f.ac, ac_in, ac_state )
+
+        ihc_out, next_ihc_state = parallel_process( f.ihc, ac_out, ihc_state )
+
+
+
 
         agc_in = [ each_ihc_out.ihc_out for each_ihc_out in ihc_out ]
 
@@ -240,10 +279,15 @@ function Processors.process( f::CARFAC_Loop, inp::Float64, state )
     #    initial_loop_input = (; x=agc_out.y, updated = agc_out.updated )
 
     #    @show initial_loop_input
-        loop_out, next_loop_state = parallel_process( f.loop, initial_loop_input, loop_state )
+        loop_output, next_loop_state = parallel_process( f.loop, initial_loop_input, loop_state )
 
-        next_state = ( next_dohc_state, next_resonator_state, next_ihc_state, next_agc_state, next_loop_state )
+        next_state = ( next_dohc_state, next_resonator_state, next_ac_state, next_ihc_state, next_agc_state, next_loop_state )
 
-        return (;y=res_ys, dohc_output ), next_state
+
+        nlf_out = [ each_dohc_output.nlf_out for each_dohc_output in dohc_output ]
+        zB      = loop_output
+        mag = [ each_car.mag for each_car in res_ys ]
+        bm  = copy( ac_out )
+        return (;y=res_ys, bm, dohc_output, nlf_out, zB, agc_out = agc_out.y, agc_state=next_agc_state.AGC_memory, mag ), next_state
 end
 

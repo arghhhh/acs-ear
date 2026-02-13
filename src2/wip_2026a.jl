@@ -235,3 +235,21 @@ figures = []
 
 carfac = CARFAC_Loop( fs, car )
 
+# a = impulse[1:100] |> carfac |> CollectArrays
+
+amp_dB = 40.0
+
+ch = 47
+f_sig = cfs[ch]
+
+xs = from_dB( amp_dB ) * Sequences.Sinusoid( f_sig, fs ) 
+N = 100000
+
+a = xs |> carfac |> Processors.Take(N) |> CollectArrays
+plot( a.zB[ch,:] )
+plot( a.nlf_out[ch,:] )
+
+
+plot( to_dB.( a.mag'[end,:] ) )
+plot( to_dB.( a.mag'[:,1:5:end] ) )
+

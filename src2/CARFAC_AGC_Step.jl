@@ -183,5 +183,7 @@ end
 # Base.eltype( ::Type{ Processors.Apply{I,CAR_coeffs_struct} } ) where {I} = Any
 function Processors.process( p::AGC_coeffs_struct, x_in::Vector{Float64}, state = AGC_Init_State(p) )
         state, updated = CARFAC_AGC_Step( x_in, p, state ) 
+
+  #      @show state.AGC_memory[:, 1]
         return (;y=state.AGC_memory[:, 1]  , updated ), state  #  % stage 1 result
 end

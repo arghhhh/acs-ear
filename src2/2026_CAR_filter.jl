@@ -116,7 +116,24 @@ end
 
 
 
+function stage_gain(f::CAR_filter, undamping)
+# % function ideal_g = CARFAC_Stage_g(CAR_coeffs, undamping)
+# % Return the stage gain g needed to get unity gain at DC
+# % See also CARFAC_Stage_g, simplified approximation used at run time,
+# % based on quadratic coefficient computed at Design time.
 
+        r1 = f.r1    # % at max damping
+        a0 = f.a0                       
+        c0 = f.c0                       
+        h  = f.h                     
+        zr = f.zr                       
+        r  = r1 .+ zr .* undamping    # % r at specified damping
+        n  = 1 .- 2*r.*a0 .+ r.^2                       
+        d  = 1 .- 2*r.*a0 .+ h.*r.*c0 .+ r.^2                       
+        ideal_g = n ./ d                       
+
+        return ideal_g
+end
 
 
 function Processors.process( f::CAR_filter, x1, state = (; z1_memory=0.0, z2_memory=0.0 ) )
@@ -127,6 +144,7 @@ function Processors.process( f::CAR_filter, x1, state = (; z1_memory=0.0, z2_mem
     # x_in,undamping = x1
         x_in = x1.x
         undamping = x1.undamping
+        agc_undamping = x1.agc_undamping
 
         r = f.r1 + f.zr * undamping
         zA = state.z2_memory   # DMH: not used?
@@ -140,9 +158,32 @@ function Processors.process( f::CAR_filter, x1, state = (; z1_memory=0.0, z2_mem
         # n and d are swapped, because calculating gain that needs to be applied to get unity at DC (z=1)
         n  = 1 - 2*r * f.a0 + r.^2                       
         d  = 1 - 2*r * f.a0 + f.h * r * f.c0 + r.^2                       
-        ideal_g = n / d                       
+        ideal_g = n / d 
 
-        y = ideal_g * (f.h * z2 + x_in) # % Outputs from z2
+        ideal_g = stage_gain( f, agc_undamping )
+        
+        # Book p 303 for approximation
+
+        g0    = stage_gain( f, 0.0)
+        g1    = stage_gain( f, 1.0)
+        ghalf = stage_gain( f, 0.5)
+        # % Store fixed coefficients for A*undamping.^2 + B^undamping + C
+        ga = 2*(g0 + g1 - 2*ghalf)
+        gb = 4*ghalf - 3*g0 - g1
+        gc = g0
+
+        stage_g = ga * agc_undamping^2 + gb * agc_undamping + gc;
+
+        gain = ideal_g  # ideal
+     #   gain = stage_g  # quadratic approx
+
+        @show agc_undamping
+
+        @assert abs( 20.0 * log10( ideal_g / stage_g ) ) < 0.01 # dB error
+
+     #   gain = 1.0 ##### TODO: temporary
+
+        y = gain * (f.h * z2 + x_in) # % Outputs from z2
 
         mag = sqrt( z1^2 + z2^2 )
 

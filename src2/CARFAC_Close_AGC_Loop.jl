@@ -20,6 +20,12 @@
 function CARFAC_Close_AGC_Loop(CF::CARFAC, CF_state_ears::Vector{Ear_state})
         # % function CF = CARFAC_Close_AGC_Loop(CF)
 
+
+        println("################")
+        @show CF_state_ears[1].CAR_state.dzB_memory
+        @show CF_state_ears[1].CAR_state.dg_memory
+        println("################")
+
         # % fastest decimated rate determines interp needed:
         decim1 = CF.AGC_params.decimation[1];
 
@@ -37,6 +43,11 @@ function CARFAC_Close_AGC_Loop(CF::CARFAC, CF_state_ears::Vector{Ear_state})
                 CF_state_ears[ear].CAR_state.dzB_memory = (CF.ears[ear].CAR_coeffs.zr_coeffs .* undamping - CF_state_ears[ear].CAR_state.zB_memory) / decim1;
                 CF_state_ears[ear].CAR_state.dg_memory = (new_g - CF_state_ears[ear].CAR_state.g_memory) / decim1;
         end
+
+        #### TODO: temporary - open loop by zeroing out dzB_memory
+        CF_state_ears[1].CAR_state.dzB_memory .= 0.0 # CF.ears[1].CAR_coeffs.zr_coeffs
+        #### TODO: temporary - confirm that gain is being calculated exactly locally now, by zeroing out dg_memory
+        CF_state_ears[1].CAR_state.dg_memory  .= 0.0
 
         return CF
 end

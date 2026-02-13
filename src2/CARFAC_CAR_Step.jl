@@ -26,6 +26,9 @@ function CARFAC_CAR_Step(x_in::Float64, CAR_coeffs::CAR_coeffs_struct, state::CA
 
         # % Most of the update is parallel; maybe ripple inputs at the end.
 
+
+# @show state
+
         # % do the DOHC stuff:
         g  = state.g_memory  + state.dg_memory     # % interp g
         zB = state.zB_memory + state.dzB_memory    #  % AGC interpolation state
@@ -38,14 +41,23 @@ function CARFAC_CAR_Step(x_in::Float64, CAR_coeffs::CAR_coeffs_struct, state::CA
         # % nlf = CARFAC_OHC_NLF(v .* widen, CAR_coeffs);  % widen v with feedback
                 nlf_out = CARFAC_OHC_NLF(v, CAR_coeffs)
         end
+
+# @show v
+# @show nlf_out
+
         # % zB * nfl is "undamping" delta r:
         r = CAR_coeffs.r1_coeffs + zB .* nlf_out
         zA = state.z2_memory
+# @show r zA
 
         # % now reduce state by r and rotate with the fixed cos/sin coeffs:
         z1 = r .* (CAR_coeffs.a0_coeffs .* state.z1_memory - CAR_coeffs.c0_coeffs .* state.z2_memory)
         # % z1 = z1 + inputs;
         z2 = r .* (CAR_coeffs.c0_coeffs .* state.z1_memory + CAR_coeffs.a0_coeffs .* state.z2_memory)
+
+# @show z1 z2
+
+# @show x_in
 
      #   if isfield(CAR_coeffs, 'use_delay_buffer') && CAR_coeffs.use_delay_buffer
         if CAR_coeffs.use_delay_buffer
@@ -56,7 +68,20 @@ function CARFAC_CAR_Step(x_in::Float64, CAR_coeffs::CAR_coeffs_struct, state::CA
                 zY[1]     = x_in          # % fill in new input
                 z1        = z1 + zY       # % add new stage inputs to z1 states
                 zY        = g .* (CAR_coeffs.h_coeffs .* z2 + zY) # % Outputs from z2
+
+
+
+
         else
+
+                ###### THESE TWO LINES ADDED TO REMOVE THE GAIN APPROXIMATION
+                ###### IN ORDER TO EXACTLY MATCH NEW MODEL
+                g1 = CARFAC_Design_Stage_g(CAR_coeffs, zB ./ CAR_coeffs.zr_coeffs )
+
+                @show zB ./ CAR_coeffs.zr_coeffs
+
+              #  g1 .= 1.0
+
                 zY = CAR_coeffs.h_coeffs .* z2 # % partial output
                 # % Ripple input-output path, instead of parallel, to avoid delay...
                 # % this is the only part that doesn't get computed "in parallel":
@@ -65,7 +90,8 @@ function CARFAC_CAR_Step(x_in::Float64, CAR_coeffs::CAR_coeffs_struct, state::CA
                         # % could do this here, or later in parallel:
                         z1[ch] = z1[ch] + in_out
                         # % ripple, saving final channel outputs in zY
-                        in_out = g[ch] * (in_out + zY[ch])
+                   #     in_out = g[ch] * (in_out + zY[ch])
+                        in_out = g1[ch] * (in_out + zY[ch])    ####### TODO: modified to use exact gain
                         zY[ch] = in_out
                 end
         end
@@ -79,12 +105,14 @@ function CARFAC_CAR_Step(x_in::Float64, CAR_coeffs::CAR_coeffs_struct, state::CA
         state.zY_memory = zY
         state.g_memory = g
 
+# @show zY
+
         # % AC couple the filters_out, with 20 Hz corner (previously part of IHC)
         ac_diff = zY - state.ac_coupler
         state.ac_coupler = state.ac_coupler + CAR_coeffs.ac_coeff * ac_diff
-
+# @show ac_diff
         car_out = ac_diff
-
+# @show car_out
         return car_out, state
 end
 
