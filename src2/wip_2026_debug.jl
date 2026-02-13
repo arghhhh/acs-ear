@@ -308,7 +308,7 @@ car = CAR_filter.( cfs, fs )
 carfac = CARFAC_Loop( fs, car )
 
 
-#if true
+if false
         ys = sinusoid |> carfac
 
         global state
@@ -336,4 +336,7 @@ plot( to_dB.( a.mag'[end,:] ) )
 
 plot( a.agc_state[:,:,end] )
 
+
+# plot the AGC signal vs time:
+plot( a.zB[1,:] )
 
