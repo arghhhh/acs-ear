@@ -138,13 +138,10 @@ end
 
 function Processors.process( f::CAR_filter, x1, state = (; z1_memory=0.0, z2_memory=0.0 ) )
 
-        # deal with input:
-    #    x_in = x1
-     #   undamping = 0.0 #1.0 # 0.9
-    # x_in,undamping = x1
-        x_in = x1.x
-        undamping = x1.undamping
-        agc_undamping = x1.agc_undamping
+        # deal with input.  there are three components of the input, 
+        x_in          = x1.x               # main audio signal input
+        undamping     = x1.undamping       # undamping which will be scaled by zr and applied to r
+        agc_undamping = x1.agc_undamping   # undamping due to only the AGC - this is used to correct the gain
 
         r = f.r1 + f.zr * undamping
         zA = state.z2_memory   # DMH: not used?
@@ -175,18 +172,12 @@ function Processors.process( f::CAR_filter, x1, state = (; z1_memory=0.0, z2_mem
         stage_g = ga * agc_undamping^2 + gb * agc_undamping + gc;
 
         gain = ideal_g  # ideal
-     #   gain = stage_g  # quadratic approx
 
-     #   @show agc_undamping
-
-        @assert abs( 20.0 * log10( ideal_g / stage_g ) ) < 0.1 # dB error
-
-     #   gain = 1.0 ##### TODO: temporary
+        # @assert abs( 20.0 * log10( ideal_g / stage_g ) ) < 0.1 # dB error
 
         y = gain * (f.h * z2 + x_in) # % Outputs from z2
 
         mag = sqrt( z1^2 + z2^2 )
-
 
         return (; y, r, z1, z2, ideal_g, mag ),( z1_memory=z1, z2_memory=z2 )
 end

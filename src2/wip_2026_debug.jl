@@ -31,9 +31,17 @@ non_decimating = false
 	fs = 22050
 	fp = 1000 # % Probe tone
 	t = (0:(1/fs):(2 - 1/fs))  #  % Sample times for 2s of tone
-#	t = 1/fs * (1:1000)
+#	t = 1/fs * (1:16)
+#	t = 1/fs * (0:2)
 	amplitude = 0.1
 	sinusoid = reshape( amplitude * sin.(2 * pi * t * fp), :, 1 )
+
+    #    sinusoid = vcat( zeros( length(sinusoid1) ), sinusoid1 ) 
+
+     #   sinusoid = reshape( sinusoid, :, 1 )
+
+    #    sinusoid = reshape( ones(1000), :, 1 )
+
 
 	@show size(sinusoid)
 
@@ -73,7 +81,8 @@ non_decimating = false
 
 	CF.open_loop = false # 0; # % To let CF adapt to signal.
 	CF.linear_car = false # 0; # % Normal mode.
-	(; naps, CF, CF_state_ears, BM ) = CARFAC_Run_Segment(CF, CF_state_ears, sinusoid);
+#	(; naps, CF, CF_state_ears, BM ) = CARFAC_Run_Segment(CF, CF_state_ears, sinusoid)
+        (; naps, CF, CF_state_ears, BM, seg_ohc, seg_agc, firings_all ) = CARFAC_Run_Segment(CF, CF_state_ears, sinusoid)
 	nap = naps
 	bm_sine = BM
 
@@ -308,12 +317,19 @@ car = CAR_filter.( cfs, fs )
 carfac = CARFAC_Loop( fs, car )
 
 
-if true
-        ys = sinusoid |> carfac
+if false
+
+       # xs = vcat( length(sinusoid), sinusoid )
+
+        xs = sinusoid[:,1]
+
+     #   ys = sinusoid |> carfac
+        ys = xs |> carfac
 
         global state
         y,state = iterate( ys )
-        for x in sinusoid[2:end]
+   #     for x in sinusoid[2:end]
+        for i in 2:length(ys)
                 global state
                 y,state = iterate( ys, state )
         end
@@ -321,6 +337,16 @@ if true
         # compare end AGC states:
         @show maximum( abs.( state[2][5].AGC_memory' - agc_response ))
 
+        # compare the feedback AGC value (interpolated)
+        display( CF_state_ears[1].CAR_state.zB_memory ./ CF.ears[1].CAR_coeffs.zr_coeffs )
+        display( [ x.zB_memory for x in state[2][6] ] )
+        diffs = CF_state_ears[1].CAR_state.zB_memory ./ CF.ears[1].CAR_coeffs.zr_coeffs - [ x.zB_memory for x in state[2][6] ] 
+
+
+        #compare BM
+        orig_bm = bm_sine[end,:,1]
+        new_bm  = y.bm
+        display( orig_bm - new_bm )
 
 plot( agc_response[1,:] )
 plot!( state[2][5].AGC_memory[:,1] )
@@ -331,6 +357,16 @@ end
 
 a = sinusoid |> carfac  |> CollectArrays
 
+# look at all agc outputs (71 channels at each time sample):
+diffs = a.agc_out' - seg_agc
+ display(diffs)
+
+# look at BM at each time sample:
+diffs = bm_sine - a.bm'
+display(diffs)
+
+
+
 
 to_dB(x) = 20.0 * log10(x)
 from_dB(x) = 10.0^(x/20) 
@@ -338,9 +374,11 @@ from_dB(x) = 10.0^(x/20)
 
 plot( to_dB.( a.mag'[end,:] ) )
 
-plot( a.agc_state[:,:,end] )
+plot( agc_response[1,:] )
+plot!( a.agc_state[:,:,end] )
 
+@show maximum( abs.( agc_response[1,:]-a.agc_state[:,1,end] ) )
 
 # plot the AGC signal vs time:
-plot( a.zB[1,:] )
+plot( a.agc_undamping[1,:] )
 
