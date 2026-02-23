@@ -12,6 +12,9 @@ mutable struct CAR_filter <: Processors.SampleProcessor
         fs :: Float64
 end
 
+
+
+
 function CAR_filter( f_ch, fs, zero_ratio = sqrt(2) )
 
         high_f_damping_compression = 0.5
@@ -54,6 +57,53 @@ function CAR_filter( f_ch, fs, zero_ratio = sqrt(2) )
 
         return CAR_filter( a0 ,c0 ,r1 ,zr ,h  ,fs )
 end
+
+function CAR_filter_min_max_zeta( f_ch, fs, zero_ratio = sqrt(2) )
+
+        high_f_damping_compression = 0.5
+        min_zeta = 0.1
+        max_zeta = 0.35
+
+        # % zero_ratio comes in via h.  In book's circuit D, zero_ratio is 1/sqrt(a),
+        # % and that a is here 1 / (1+f) where h = f*c.
+        # % solve for f:  1/zero_ratio^2 = 1 / (1+f)
+        # % zero_ratio^2 = 1+f => f = zero_ratio^2 - 1
+        f = zero_ratio^2 - 1 # % nominally 1 for half-octave
+
+        # % Make pole positions, s and c coeffs, h and g coeffs, etc.,
+        # % which mostly depend on the pole angle theta:
+        theta = f_ch * (2 * pi / fs)
+        c0 = sin(theta)
+        a0 = cos(theta)
+
+        # % different possible interpretations for min-damping r:
+        # % r = exp(-theta * CF_CAR_params.min_zeta).
+        # % Compress theta to give somewhat higher Q at highest thetas:
+        ff = high_f_damping_compression # % 0 to 1; typ. 0.5
+        x = theta/pi
+        theta = pi * (x - ff * x.^3) # % when ff is 0, this is just theta,
+        # %                          and when ff is 1 it goes to zero at theta = pi.
+        r1 = (1 - theta * max_zeta) # % "r1" for the max-damping condition
+
+#        ERB_break_freq = 165.3    # DMH shouldn't be here
+#        ERB_Q = 1000/(24.7*4.37)  # DMH shouldn't be here
+
+
+        # % Increase the min damping where channels are spaced out more, by pulling
+        # % toward ERB_Hz/pole_freqs (close to 0.1 at high f)
+        min_zetas = min_zeta + 0.25*(ERB_Hz(f_ch ) / f_ch - min_zeta)
+        r1 = (1 - theta * max_zeta) # % "r1" for the max-damping condition
+        zr = theta * (max_zeta - min_zetas) # % how r relates to undamping
+        
+
+        h = c0 * f
+
+        return theta * min_zetas, theta * max_zeta
+end
+
+
+
+
 
 function CAR_filter2( f_ch, fs, ERB_per_step, zero_ratio = sqrt(2) )
 
@@ -134,6 +184,182 @@ function stage_gain(f::CAR_filter, undamping)
 
         return ideal_g
 end
+
+function tfn( f::CAR_filter, undamping = 1.0 ) 
+        # Lyon book p301 - equation two thirds down, in z, but create poly in z^-1
+        # 
+        r1 = f.r1    # % at max damping
+        a0 = f.a0                       
+        c0 = f.c0                       
+        h  = f.h                     
+        zr = f.zr                       
+        r  = r1 .+ zr .* undamping    # % r at specified damping
+        n  = 1 .- 2*r.*a0 .+ r.^2                       
+        d  = 1 .- 2*r.*a0 .+ h.*r.*c0 .+ r.^2                       
+        g = n ./ d                       
+
+     #   return TFNs.TFN( [ Polys.Poly( g, g*(-2a0+h*c0)*r, g*r*r ) ], [ Polys.Poly( 1.0, -2*a0*r, r*r ) ] )
+
+        # move constant factor, do denominator, highest power coefficient is one:
+        mag = r*r
+        return TFNs.TFN( [ Polys.Poly( g/mag, g*(-2a0+h*c0)*r/mag, g #= *r*r/mag =# ) ], [ Polys.Poly( 1.0/mag, -2*a0*r/mag, 1.0 ) ] )
+end
+
+function tfn( f::Vector{CAR_filter}, undamping = ones(length(f)) ) 
+        n = Polys.Poly{Float64}[]
+        d = Polys.Poly{Float64}[]
+        for (r,b) in zip(f, undamping)
+                tf = tfn( r, b )
+                append!( n, tf.numerator   )
+                append!( d, tf.denominator )
+        end
+        return TFNs.TFN( n, d )
+end
+
+function poly_from_root( z::Complex )
+	re = real(z)
+	im = imag(z)
+        # setting the highest power coefficient to one
+        # this is what is usually wanted:   s^2 + wo/Q s + wo^2
+        #                                   z^-2 + a z^-1 + b z^-1
+	return Polys.Poly( re*re + im*im , -2.0 * re, 1.0 )
+end
+
+function poly_from_root_inv( z::Complex )
+	re = real(z)
+	im = imag(z)
+        # setting the highest power coefficient to one
+        # this is what is usually wanted:   s^2 + wo/Q s + wo^2
+        #                                   z^-2 + a z^-1 + b z^-1
+#	return Polys.Poly( re*re + im*im , -2.0 * re, 1.0 )
+        mag = re*re + im*im
+	return Polys.Poly( 1.0/mag, -2.0 * re / mag, 1.0 )
+end
+
+function roots_from_poly( poly::Polys.Poly )
+
+        p = poly.p
+
+        z,z2 = solve_quadratic( p[3], p[2], p[1] )
+
+        return z, z2
+end
+
+
+# this is for getting the roots of a z-domain poly, when then poly is in z^-1
+function roots_from_poly_inv( poly::Polys.Poly )
+
+        p = poly.p
+
+        z,z2 = solve_quadratic( p[1], p[2], p[3] )
+
+        return z, z2
+end
+
+
+# originally taken from TFNtransform.jl
+function z_from_s_poly( s_poly::Polys.Poly, fs )
+
+        p = s_poly.p
+
+	n = length(p)
+
+
+
+	# @show p fs
+	
+	#	if n == 1
+	#		# constant factor
+	#		# do nothing
+	#		f[1] = p[1]
+	#	elseif n == 2
+	#		# first order factor ( p[2].s + p[1] ) has
+	#		# root location: ( s - si )
+	#		si = -p[1] / p[2]
+	#		# and maps to:
+	#		f[2] = 1
+	#		f[1] = -exp( si/fs )
+	#
+	#		println( "matched_z ", si, " -> ", -f[1] )
+	#	elseif n == 3
+			# second order factor
+
+		#	z,z2 = roots_of_factor( p );
+                #        z,z2 = solve_quadratic( p[3], p[2], p[1] )
+#
+	#
+		#	f3 = p[3]
+		#	f2 = p[3] * -2.0 * exp( z.re /  fs ) * cos( z.im /  fs )
+		#	f1 = p[3] * exp( 2.0 * z.re /  fs )
+
+                        s_pole,_ = roots_from_poly( s_poly )
+                        z_pole   = exp( s_pole / fs )
+
+                        z_poly = poly_from_root_inv( z_pole )
+
+                return z_poly
+
+
+	#	else
+	#		error(" matched z transform poly must be factored")
+	#	end
+
+	return f
+end
+
+# inverse of matched_z_factor function - go from a z^-1-domain factor to a s-domain factor:
+function s_from_z_poly( z_poly::Polys.Poly, fs )
+
+        p = z_poly.p
+
+	# n = length(p)
+	# f = zeros(n)
+
+	# @show p fs
+	
+	#	if n == 1
+	#		# constant factor
+	#		# do nothing
+	#		f[1] = p[1]
+	#	elseif n == 2
+	#		# first order factor ( p[2].s + p[1] ) has
+	#		# root location: ( s - si )
+	#		si = -p[1] / p[2]
+	#		# and maps to:
+	#		f[2] = 1
+	#		f[1] = -exp( si/fs )
+	#
+	#		println( "matched_z ", si, " -> ", -f[1] )
+	#	elseif n == 3
+			# second order factor
+
+		#	z,z2 = roots_of_factor( p );
+                #        z,z2 = solve_quadratic( p[3], p[2], p[1] )
+                        z_pole,_ = roots_from_poly_inv( z_poly )
+
+                        s = fs * log( z_pole )
+
+                        s_poly = poly_from_root(s)
+	
+	#	else
+	#		error(" matched z transform poly must be factored")
+	#	end
+
+	return s_poly
+end
+
+# Lyon book, Figure 8.4, p150:
+get_w_N_from_s_poly( s_poly ) = abs( roots_from_poly( s_poly )[1] )
+get_w_R_from_s_poly( s_poly ) = imag( roots_from_poly( s_poly )[1] )
+get_gamma_from_s_poly( s_poly ) = -real( roots_from_poly( s_poly )[1] )
+get_zeta_from_s_poly( s_poly ) = get_gamma_from_s_poly( s_poly ) / get_w_N_from_s_poly( s_poly )
+get_Q_from_s_poly( s_poly ) = 1.0 / ( 2.0 * get_zeta_from_s_poly( s_poly ) )
+
+# who uses radians/s?  get them in Hertz
+get_f_N_from_s_poly( s_poly ) = get_w_N_from_s_poly( s_poly ) / (2pi)
+get_f_R_from_s_poly( s_poly ) = get_w_R_from_s_poly( s_poly ) / 2(pi)
+
+
 
 
 function Processors.process( f::CAR_filter, x1, state = (; z1_memory=0.0, z2_memory=0.0 ) )
@@ -235,7 +461,7 @@ end
 function solve_quadratic(a, b, c)
     discr = b^2 - 4*a*c
     sq = sqrt(Complex(discr)) 
-    [(-b - sq)/(2a), (-b + sq)/(2a)]
+    [(-b + sq)/(2a), (-b - sq)/(2a)]    # return upper half plane root first
 end
 
 function quadratic_poles( res::LinearResonator )
@@ -263,7 +489,7 @@ struct Constant_undamping <: Processors.SampleProcessor
         undamping::Float64
 end
 function Processors.process( f::Constant_undamping, x, state=nothing )
-        return (;x=x,undamping=f.undamping), nothing
+        return (;x=x,undamping=f.undamping,agc_undamping=f.undamping), nothing
 end
 Base.eltype( ::Type{ Processors.Apply{X,Constant_undamping} } ) where{X} = @NamedTuple{in::Float64, undamping::Float64}
 

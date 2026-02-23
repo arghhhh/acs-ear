@@ -79,6 +79,11 @@ end
 CAR_DOHC( res::CAR_filter, default_undamping = 0.0 ) = CAR_DOHC( res, DOHC( res.r1, res.zr, res.fs ), default_undamping )
 
 
+#### TODO: these defaults are too error prone
+###    either, input is a number, everything else is defaulted
+###        or  input is a tuple, and all expected keys must be present
+###  It is having a tuple, with the wrong or missing keys that is error prone
+
 function Processors.process( f::CAR_DOHC, in )
         x = single_default( in, :x, 0.0 )
         b = tuple_default( in, :undamping, f.default_undamping )
@@ -95,7 +100,7 @@ function Processors.process( f::CAR_DOHC, in, state )
 
         (dohc_state, resonator_state) = state;
 
-        dohc_out,next_dohc_state = Processors.process( f.dohc, (; x=resonator_state.z2_memory, b ), dohc_state )
+        dohc_out,next_dohc_state = Processors.process( f.dohc, (; x=resonator_state.z2_memory, agc_undamping=b ), dohc_state )
         resonator_out, next_resonator_state = Processors.process( f.resonator, (;x=x,undamping = dohc_out.relative_undamping, agc_undamping = dohc_out.agc_undamping), resonator_state )
 
         return (;y=resonator_out.y,dohc_out, resonator_out), (next_dohc_state, next_resonator_state)

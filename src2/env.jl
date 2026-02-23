@@ -24,3 +24,7 @@ import Processors
 import Sequences
 import ProcSeqs
 import CARFACjl
+
+import TFNs
+import Polys
+
